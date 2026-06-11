@@ -37,6 +37,20 @@ Visual:
 - Template CTA yang biasa digunakan."""
 
 
+# Daftar "sudut konten" untuk variasi brief saat 1 platform diminta banyak brief.
+# Dipakai bergiliran (brief ke-1 pakai sudut ke-1, dst).
+SUDUT_KONTEN = [
+    "Edukasi / Tips Praktis",
+    "Product Knowledge (kenalkan fitur & keunggulan produk)",
+    "Storytelling / Relatable (cerita keseharian yang nyambung dengan produk)",
+    "Promosi / Penawaran (dorong audiens untuk action / beli)",
+    "Testimoni / Social Proof (bukti & kepercayaan dari pengguna)",
+    "Behind The Scenes / Proses (di balik layar produk atau layanan)",
+    "Mitos vs Fakta / FAQ (luruskan salah kaprah, jawab pertanyaan umum)",
+    "Inspirasi / Motivasi (angkat semangat yang relevan dengan audiens)",
+]
+
+
 def baca_link(url):
     if not url:
         return "(tidak ada link referensi)"
@@ -49,14 +63,18 @@ def baca_link(url):
         return f"(Gagal baca link: {e})"
 
 
-def buat_brief_satu_platform(topik, link, isi_link, platform):
+def buat_brief_satu_platform(topik, link, isi_link, platform, sudut=None):
+    instruksi_sudut = (
+        f"- SUDUT KONTEN brief ini: {sudut}. Fokuskan seluruh isi brief ke sudut ini.\n"
+        if sudut else ""
+    )
     perintah = f"""Kamu adalah content planner profesional untuk brand alat industri/laboratorium.
 Buatkan brief konten untuk platform {platform}, untuk dikerjakan tim desain.
 
 PENTING:
 - Ikuti PERSIS format dan gaya dari contoh di bawah.
 - Sesuaikan NUANSA dengan platform {platform}: kalau Instagram lebih santai/relatable, kalau LinkedIn lebih profesional dan informatif.
-- Jangan menambah bagian "Tips Tambahan", "Caption", atau "Hashtag".
+{instruksi_sudut}- Jangan menambah bagian "Tips Tambahan", "Caption", atau "Hashtag".
 - Maksimal 5 slide (termasuk CTA). Umumnya 3-4 slide. Slide terakhir selalu CTA.
 - Pada bagian "Sumber/Referensi", tulis link ini: {link}
 
@@ -80,9 +98,22 @@ Pastikan isi nyambung dengan produk dari informasi di atas."""
     return response.text
 
 
-def buat_brief(topik, link, daftar_platform):
+def buat_brief(topik, link, daftar_platform, jumlah=1):
+    # Batasi jumlah brief per platform supaya wajar (hindari request kelamaan).
+    try:
+        jumlah = int(jumlah)
+    except (TypeError, ValueError):
+        jumlah = 1
+    jumlah = max(1, min(jumlah, 8))
+
     isi_link = baca_link(link)
     hasil = {}
     for platform in daftar_platform:
-        hasil[platform] = buat_brief_satu_platform(topik, link, isi_link, platform)
+        daftar_brief = []
+        for i in range(jumlah):
+            # Kalau cuma 1 brief, biarkan tanpa sudut khusus (perilaku lama).
+            sudut = SUDUT_KONTEN[i % len(SUDUT_KONTEN)] if jumlah > 1 else None
+            isi = buat_brief_satu_platform(topik, link, isi_link, platform, sudut)
+            daftar_brief.append({"sudut": sudut or "Umum", "isi": isi})
+        hasil[platform] = daftar_brief
     return hasil

@@ -11,6 +11,7 @@ class PesananBrief(BaseModel):
     topik: str
     link: str = ""                 # boleh kosong
     platform: list[str]            # contoh: ["Instagram", "LinkedIn"]
+    jumlah: int = 1                # jumlah brief per platform (1-8)
 
 # Loket pertama: cuma buat ngecek backend hidup atau nggak
 @app.get("/")
@@ -20,5 +21,5 @@ def cek_hidup():
 # Loket utama: nerima pesanan, jalanin mesin agent, balikin brief
 @app.post("/buat-brief")
 def endpoint_buat_brief(pesanan: PesananBrief):
-    hasil = buat_brief(pesanan.topik, pesanan.link, pesanan.platform)
+    hasil = buat_brief(pesanan.topik, pesanan.link, pesanan.platform, pesanan.jumlah)
     return {"brief": hasil}
