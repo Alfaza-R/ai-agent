@@ -7,34 +7,35 @@ from google import genai
 load_dotenv()
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
-CONTOH_FORMAT = """Konten Carousel Instagram — Realita Kehidupan Laboran
-Jenis Konten: Entertaining / Relatable
-Format: Carousel
-Warna Dominan: Merah
-Sumber/Referensi: Timbangan Laboratorium / https://timbanganindonesia.com/product/orion-series/
+CONTOH_FORMAT = """<h1>Konten Carousel Instagram — Realita Kehidupan Laboran</h1>
+<p><strong>Jenis Konten:</strong> Entertaining / Relatable</p>
+<p><strong>Format:</strong> Carousel</p>
+<p><strong>Warna Dominan:</strong> Merah</p>
+<p><strong>Sumber/Referensi:</strong> Timbangan Laboratorium / https://timbanganindonesia.com/product/orion-series/</p>
 
----
-SLIDE 1 — Thumbnail
-Visual:
-- Ilustrasi karakter laboran yang bingung di depan timbangan.
-Headline:
-Momen "Dugaan" di Laboratorium
-Sub Headline:
-Saat Kamu Sudah Yakin, Tapi Angka Terus Berubah
+<h2>SLIDE 1 — Thumbnail</h2>
+<p><strong>Visual:</strong></p>
+<ul>
+  <li>Ilustrasi karakter laboran yang bingung di depan timbangan.</li>
+</ul>
+<p><strong>Headline:</strong> Momen "Dugaan" di Laboratorium</p>
+<p><strong>Sub Headline:</strong> Saat Kamu Sudah Yakin, Tapi Angka Terus Berubah</p>
 
----
-SLIDE 2 — Penyebabnya Apa?
-Visual:
-- Foto timbangan dengan area kerja sedikit berantakan.
-Headline:
-Penyebab Drama Timbangan
-Isi:
-- Pintu Kaca Belum Tertutup Rapat: aliran udara memengaruhi hasil.
+<h2>SLIDE 2 — Penyebabnya Apa?</h2>
+<p><strong>Visual:</strong></p>
+<ul>
+  <li>Foto timbangan dengan area kerja sedikit berantakan.</li>
+</ul>
+<p><strong>Headline:</strong> Penyebab Drama Timbangan</p>
+<p><strong>Isi:</strong></p>
+<ul>
+  <li>Pintu Kaca Belum Tertutup Rapat: aliran udara memengaruhi hasil.</li>
+</ul>
 
----
-SLIDE 3 — Call To Action
-Visual:
-- Template CTA yang biasa digunakan."""
+<h2>SLIDE 3 — Call To Action</h2>
+<ul>
+  <li>Template CTA yang biasa digunakan.</li>
+</ul>"""
 
 
 # Daftar "sudut konten" untuk variasi brief saat 1 platform diminta banyak brief.
@@ -73,9 +74,15 @@ Buatkan brief konten untuk platform {platform}, untuk dikerjakan tim desain.
 
 PENTING:
 - Ikuti PERSIS format dan gaya dari contoh di bawah.
+- OUTPUT HARUS HTML. Aturan struktur:
+  * Judul narasi (paling atas) pakai <h1>.
+  * Judul tiap slide (mis. "SLIDE 1 — Thumbnail") pakai <h2>.
+  * Daftar/poin (Visual, Isi, dll) pakai bullet list <ul><li>...</li></ul>.
+  * Label singkat (Jenis Konten, Headline, Sub Headline, dsb) pakai <p><strong>Label:</strong> nilai</p>.
+- HANYA keluarkan HTML mentah. JANGAN bungkus dengan ```html atau ``` , JANGAN pakai markdown.
 - Sesuaikan NUANSA dengan platform {platform}: kalau Instagram lebih santai/relatable, kalau LinkedIn lebih profesional dan informatif.
 {instruksi_sudut}- Jangan menambah bagian "Tips Tambahan", "Caption", atau "Hashtag".
-- Maksimal 5 slide (termasuk CTA). Umumnya 3-4 slide. Slide terakhir selalu CTA.
+- Maksimal 5 slide (termasuk CTA). Umumnya 3-4 slide. Slide terakhir selalu CTA (isi CTA seperti biasa).
 - Pada bagian "Sumber/Referensi", tulis link ini: {link}
 
 === CONTOH FORMAT YANG HARUS DIIKUTI ===

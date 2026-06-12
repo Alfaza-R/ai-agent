@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(python -c ' *)",
-      "Bash(pandoc --version)"
+      "Bash(pandoc --version)",
+      "PowerShell(& \"C:\\\\xampp\\\\php\\\\php.exe\" -l \"C:\\\\Users\\\\rayha\\\\Downloads\\\\intern-dashboard-extracted\\\\includes\\\\class-api-planner.php\")",
+      "Bash(python -m py_compile mesin_agent.py main.py)"
     ]
   }
 }
