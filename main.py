@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 from mesin_agent import buat_brief   # ambil mesin agent yang tadi kita bikin
+from mesin_seo import cek_seo        # mesin cek SEO/readability ala Yoast
 
 # Bikin aplikasi backend-nya
 app = FastAPI()
@@ -23,3 +24,23 @@ def cek_hidup():
 def endpoint_buat_brief(pesanan: PesananBrief):
     hasil = buat_brief(pesanan.topik, pesanan.link, pesanan.platform, pesanan.jumlah)
     return {"brief": hasil}
+
+# Pesanan untuk cek SEO sebuah artikel
+class PesananCekSEO(BaseModel):
+    title: str = ""
+    content: str = ""
+    meta_description: str = ""
+    focus_keyphrase: str = ""
+    perbaiki: bool = False         # kalau True, AI sekalian merevisi artikel
+
+# Loket cek SEO: nilai artikel ala Yoast, balikin skor + checklist + saran (+revisi)
+@app.post("/cek-seo")
+def endpoint_cek_seo(pesanan: PesananCekSEO):
+    hasil = cek_seo(
+        pesanan.title,
+        pesanan.content,
+        pesanan.meta_description,
+        pesanan.focus_keyphrase,
+        pesanan.perbaiki,
+    )
+    return hasil
