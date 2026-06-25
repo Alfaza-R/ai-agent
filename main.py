@@ -1,10 +1,19 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from mesin_agent import buat_brief   # ambil mesin agent yang tadi kita bikin
 from mesin_seo import cek_seo        # mesin cek SEO/readability ala Yoast
 
 # Bikin aplikasi backend-nya
 app = FastAPI()
+
+# Izinkan halaman web lain (mis. dashboard di WordPress) memanggil backend ini.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],      # semua domain boleh; aman karena endpoint ini memang publik
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Ini "bentuk pesanan" yang harus dikirim ke loket kita.
 # Artinya: siapa pun yang mau minta brief, harus kasih topik, link, dan daftar platform.
