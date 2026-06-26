@@ -10,10 +10,12 @@ import os
 import json
 import base64
 import binascii
-import tempfile
-import subprocess
+
+import requests
 
 from mesin_agent import client  # reuse client Gemini yang sudah ada
+
+CC_API = "https://api.cloudconvert.com/v2"
 
 try:
     from google.genai import types
@@ -51,37 +53,41 @@ def _is_dwg(b):
     return len(b) >= 6 and b[:2] == b"AC" and b[2:6].isdigit()
 
 
-def _dwg_to_png(dwg_bytes):
-    """Konversi DWG -> DXF (LibreDWG) -> render PNG (ezdxf + matplotlib)."""
-    import matplotlib
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-    from ezdxf import recover
-    from ezdxf.addons.drawing import RenderContext, Frontend
-    from ezdxf.addons.drawing.matplotlib import MatplotlibBackend
+def _dwg_to_pdf_cloudconvert(dwg_bytes):
+    """Konversi DWG -> PDF via CloudConvert. Butuh env CLOUDCONVERT_API_KEY."""
+    api_key = os.getenv("CLOUDCONVERT_API_KEY", "").strip()
+    if not api_key:
+        raise RuntimeError("CLOUDCONVERT_API_KEY belum diset di Secret backend")
+    H = {"Authorization": "Bearer " + api_key}
 
-    with tempfile.TemporaryDirectory() as d:
-        dwg_path = os.path.join(d, "in.dwg")
-        dxf_path = os.path.join(d, "out.dxf")
-        png_path = os.path.join(d, "out.png")
-        with open(dwg_path, "wb") as f:
-            f.write(dwg_bytes)
+    # 1) Buat job: upload -> convert(dwg->pdf) -> export url
+    job = {"tasks": {
+        "imp":  {"operation": "import/upload"},
+        "conv": {"operation": "convert", "input": "imp", "input_format": "dwg", "output_format": "pdf"},
+        "exp":  {"operation": "export/url", "input": "conv"},
+    }}
+    r = requests.post(CC_API + "/jobs", json=job, headers=H, timeout=60)
+    r.raise_for_status()
+    tasks = r.json()["data"]["tasks"]
+    imp = next(t for t in tasks if t["name"] == "imp")
+    exp = next(t for t in tasks if t["name"] == "exp")
 
-        # DWG -> DXF
-        subprocess.run(["dwg2dxf", "-o", dxf_path, dwg_path],
-                       check=True, capture_output=True, timeout=90)
+    # 2) Upload file DWG ke form yang diberikan CloudConvert
+    form = imp["result"]["form"]
+    up = requests.post(form["url"], data=form["parameters"],
+                       files={"file": ("drawing.dwg", dwg_bytes)}, timeout=180)
+    up.raise_for_status()
 
-        # DXF -> PNG
-        doc, _ = recover.readfile(dxf_path)
-        msp = doc.modelspace()
-        fig = plt.figure(figsize=(16, 12))
-        ax = fig.add_axes([0, 0, 1, 1]); ax.set_axis_off()
-        Frontend(RenderContext(doc), MatplotlibBackend(ax)).draw_layout(msp, finalize=True)
-        fig.savefig(png_path, dpi=120, facecolor="white")
-        plt.close(fig)
-
-        with open(png_path, "rb") as f:
-            return f.read()
+    # 3) Tunggu task export selesai (long-poll), lalu unduh PDF
+    w = requests.get(CC_API + "/tasks/" + exp["id"] + "/wait", headers=H, timeout=300)
+    w.raise_for_status()
+    task = w.json()["data"]
+    if task.get("status") != "finished":
+        raise RuntimeError("CloudConvert gagal: " + str(task.get("message") or task.get("status")))
+    pdf_url = task["result"]["files"][0]["url"]
+    pdf = requests.get(pdf_url, timeout=180)
+    pdf.raise_for_status()
+    return pdf.content
 
 
 def analisa_bms(chat, image_base64="", image_mime="image/png"):
@@ -100,11 +106,11 @@ def analisa_bms(chat, image_base64="", image_mime="image/png"):
 
         if file_bytes:
             mime = image_mime or "image/png"
-            # Kalau DWG: konversi dulu ke PNG
+            # Kalau DWG: konversi dulu ke PDF via CloudConvert
             if _is_dwg(file_bytes) or (image_mime or "").lower().find("dwg") != -1:
                 try:
-                    file_bytes = _dwg_to_png(file_bytes)
-                    mime = "image/png"
+                    file_bytes = _dwg_to_pdf_cloudconvert(file_bytes)
+                    mime = "application/pdf"
                 except Exception as e:
                     contents[0] += ("\n\n(CATATAN: file DWG gagal dikonversi otomatis: "
                                     + str(e)[:150] + ". Analisa hanya dari teks; minta sales kirim PDF/gambar.)")
