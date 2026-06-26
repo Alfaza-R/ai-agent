@@ -13,8 +13,9 @@
     <textarea id="bms-chat" placeholder="Tempel chat atau permintaan customer di sini..."></textarea>
 
     <div class="bms-file-row">
-      <label class="bms-file-label">📎 Lampirkan Gambar CAD<input type="file" id="bms-image" accept="image/*" hidden></label>
+      <label class="bms-file-label">📎 Lampirkan CAD (DWG / PDF / Gambar)<input type="file" id="bms-image" accept="image/*,application/pdf,.pdf,.dwg" hidden></label>
       <span id="bms-file-name" class="bms-file-name"></span>
+      <span class="bms-file-hint">DWG dikonversi otomatis (drawing sangat kompleks/versi baru kadang kurang akurat).</span>
     </div>
 
     <button id="bms-submit" class="bms-btn" type="button">✨ Analisa Permintaan</button>
@@ -39,6 +40,7 @@ html, body { background:#0f1420 !important; }
 .bms-file-label { display:inline-flex; align-items:center; gap:6px; background:#1f2737; border:1px solid #3b4860; color:#cbd5e1; padding:10px 16px; border-radius:10px; cursor:pointer; font-size:13px; transition:background .15s; }
 .bms-file-label:hover { background:#273044; }
 .bms-file-name { font-size:12.5px; color:#94a3b8; }
+.bms-file-hint { font-size:11px; color:#64748b; width:100%; }
 .bms-btn { width:100%; background:#3b82f6; color:#fff; border:none; font-family:inherit; font-weight:700; font-size:15px; padding:13px 16px; border-radius:10px; cursor:pointer; transition:background .15s; }
 .bms-btn:hover { background:#2563eb; }
 .bms-btn:disabled { opacity:.6; cursor:default; }
