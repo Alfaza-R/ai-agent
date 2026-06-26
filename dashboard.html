@@ -15,25 +15,6 @@
   <div class="aihub-grid" id="aihub-grid"></div>
 </div>
 
-<!-- ===== Modal Tool: BMS Sales Assistant ===== -->
-<div id="bms-modal" class="bms-overlay">
-  <div class="bms-modal">
-    <div class="bms-modal-head">
-      <h3>🏢 BMS Sales Assistant</h3>
-      <button class="bms-close" type="button">✕</button>
-    </div>
-    <p class="bms-hint">Tempel chat customer, lampirkan gambar CAD (opsional), lalu klik Analisa.</p>
-    <textarea id="bms-chat" placeholder="Tempel chat / permintaan customer di sini..."></textarea>
-    <div class="bms-file-row">
-      <label class="bms-file-label">📎 Lampirkan CAD<input type="file" id="bms-image" accept="image/*" hidden></label>
-      <span id="bms-file-name" class="bms-file-name"></span>
-    </div>
-    <button id="bms-submit" class="aihub-btn" type="button">✨ Analisa</button>
-    <div id="bms-status" class="bms-status"></div>
-    <div id="bms-result" class="bms-result"></div>
-  </div>
-</div>
-
 <style>
 /* Buat seluruh halaman ikut gelap, hilangkan putih di belakang widget */
 html, body { background: #0f1420 !important; }
@@ -61,24 +42,6 @@ html, body { background: #0f1420 !important; }
 .aihub-btn:hover { background:#2563eb; }
 .aihub-btn.ghost { background:transparent; color:#cbd5e1 !important; border:1px solid #3b4860; margin-top:8px; }
 .aihub-btn.ghost:hover { background:#1f2737; }
-/* ===== Modal BMS ===== */
-.bms-overlay { position:fixed; inset:0; background:rgba(0,0,0,.72); display:none; align-items:flex-start; justify-content:center; padding:40px 16px; z-index:99999; overflow-y:auto; }
-.bms-overlay.open { display:flex; }
-.bms-modal { background:#141a27; border:1px solid #2a3344; border-radius:16px; width:100%; max-width:640px; padding:24px; font-family:'Poppins',sans-serif; color:#e5e7eb; }
-.bms-modal-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
-.bms-modal-head h3 { margin:0; font-size:18px; color:#f1f5f9; }
-.bms-close { background:#1f2737; border:1px solid #3b4860; color:#cbd5e1; width:32px; height:32px; border-radius:8px; cursor:pointer; font-size:14px; }
-.bms-hint { color:#94a3b8; font-size:12.5px; margin:0 0 14px; }
-#bms-chat { width:100%; min-height:120px; background:#0f1420; border:1px solid #2a3344; border-radius:10px; color:#e5e7eb; padding:12px; font-family:inherit; font-size:13.5px; resize:vertical; }
-.bms-file-row { display:flex; align-items:center; gap:10px; margin:12px 0; flex-wrap:wrap; }
-.bms-file-label { display:inline-flex; align-items:center; gap:6px; background:#1f2737; border:1px solid #3b4860; color:#cbd5e1; padding:9px 14px; border-radius:10px; cursor:pointer; font-size:13px; }
-.bms-file-name { font-size:12px; color:#94a3b8; }
-.bms-status { font-size:12.5px; color:#fcd34d; margin-top:10px; }
-.bms-result { margin-top:14px; display:flex; flex-direction:column; gap:12px; }
-.bms-out { background:#0f1420; border:1px solid #273044; border-radius:12px; padding:14px 16px; }
-.bms-out-title { font-weight:700; font-size:13px; color:#93c5fd; margin-bottom:8px; }
-.bms-out-body { white-space:pre-wrap; font-size:13.5px; line-height:1.6; color:#cbd5e1; }
-#bms-submit { width:100%; }
 </style>
 
 <script>
@@ -88,6 +51,7 @@ html, body { background: #0f1420 !important; }
   var LINK_DASHBOARD_INTERN = "https://eknowledge.taharica.com/admin-dashboard-intern/";
   var LINK_SPREADSHEET      = "https://docs.google.com/spreadsheets/d/1086rJ803Dl5K-YZIFBbF6ObLE5Upt7mnJcokpLvbVEM/edit";
   var LINK_API_DOCS         = BACKEND_URL + "/docs";
+  var LINK_BMS              = "GANTI_DENGAN_URL_HALAMAN_BMS"; // mis. https://eknowledge.taharica.com/bms-sales/
 
   // ===== Daftar agent =====
   var AGENTS = [
@@ -116,8 +80,8 @@ html, body { background: #0f1420 !important; }
       icon:"🏢", bg:"rgba(168,85,247,.16)",
       nama:"BMS Sales Assistant",
       desc:"Tempel chat customer (+ gambar CAD). Agent menerjemahkan permintaan teknis yang rumit jadi mudah dipahami, lalu memberi rekomendasi balasan siap pakai untuk sales.",
-      live:true, tool:"bms",
-      btn:{ text:"🚀 Buka Tool" },
+      live:true,
+      btn:{ text:"Buka BMS Assistant", url:LINK_BMS },
     },
   ];
 
@@ -128,67 +92,15 @@ html, body { background: #0f1420 !important; }
 
   var grid = document.getElementById("aihub-grid");
   grid.innerHTML = AGENTS.map(function (a) {
-    var extra;
-    if (a.tool === "bms") {
-      extra = '<button class="aihub-btn aihub-bms-open" type="button">' + a.btn.text + '</button>';
-    } else if (a.btn.url.indexOf("GANTI_") === 0) {
-      extra = '<span class="aihub-btn ghost" title="Edit URL di kode dashboard">⚠️ Set URL dulu</span>';
-    } else {
-      extra = '<a class="aihub-btn" href="' + a.btn.url + '" target="_blank" rel="noopener">' + a.btn.text + '</a>';
-    }
+    var extra = (a.btn.url.indexOf("GANTI_") === 0)
+      ? '<span class="aihub-btn ghost" title="Edit URL di kode dashboard">⚠️ Set URL dulu</span>'
+      : '<a class="aihub-btn" href="' + a.btn.url + '" target="_blank" rel="noopener">' + a.btn.text + '</a>';
     return '<div class="aihub-card">'
       + '<div class="aihub-card-top"><div class="aihub-icon" style="background:' + a.bg + '">' + a.icon + '</div>'
       + '<div><h3>' + a.nama + '</h3>' + badge(a) + '</div></div>'
       + '<p class="aihub-desc">' + a.desc + '</p>'
       + extra + '</div>';
   }).join("");
-
-  // ===== Tool BMS Sales Assistant =====
-  var bmsImageB64 = "", bmsImageMime = "";
-  function openBMS()  { document.getElementById("bms-modal").classList.add("open"); }
-  function closeBMS() { document.getElementById("bms-modal").classList.remove("open"); }
-  function esc(s) { return (s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
-
-  var bmsOpenBtn = document.querySelector(".aihub-bms-open");
-  if (bmsOpenBtn) bmsOpenBtn.addEventListener("click", openBMS);
-  document.querySelector(".bms-close").addEventListener("click", closeBMS);
-  document.getElementById("bms-modal").addEventListener("click", function (e) {
-    if (e.target.id === "bms-modal") closeBMS();
-  });
-  document.getElementById("bms-image").addEventListener("change", function (e) {
-    var f = e.target.files[0];
-    var nameEl = document.getElementById("bms-file-name");
-    if (!f) { bmsImageB64 = ""; bmsImageMime = ""; nameEl.textContent = ""; return; }
-    bmsImageMime = f.type || "image/png";
-    nameEl.textContent = "📎 " + f.name;
-    var reader = new FileReader();
-    reader.onload = function () { bmsImageB64 = (reader.result || "").toString().split(",")[1] || ""; };
-    reader.readAsDataURL(f);
-  });
-  document.getElementById("bms-submit").addEventListener("click", function () {
-    var chat = document.getElementById("bms-chat").value.trim();
-    if (!chat && !bmsImageB64) { alert("Tempel chat customer atau lampirkan gambar CAD dulu."); return; }
-    var btn = document.getElementById("bms-submit");
-    var statusEl = document.getElementById("bms-status");
-    var resEl = document.getElementById("bms-result");
-    btn.disabled = true; btn.textContent = "⏳ Menganalisa...";
-    statusEl.textContent = "Menganalisa permintaan... (bisa 10-40 detik)";
-    resEl.innerHTML = "";
-    fetch(BACKEND_URL + "/bms-sales", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat: chat, image_base64: bmsImageB64, image_mime: bmsImageMime })
-    })
-    .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
-    .then(function (data) {
-      resEl.innerHTML =
-        '<div class="bms-out"><div class="bms-out-title">📋 Informasi Permintaan Customer</div><div class="bms-out-body">' + esc(data.informasi_permintaan || "-") + '</div></div>' +
-        '<div class="bms-out"><div class="bms-out-title">💬 Rekomendasi Respond Sales</div><div class="bms-out-body">' + esc(data.rekomendasi_respond || "-") + '</div></div>';
-      statusEl.textContent = "";
-    })
-    .catch(function (err) { statusEl.textContent = "❌ Gagal: " + err.message; })
-    .finally(function () { btn.disabled = false; btn.textContent = "✨ Analisa"; });
-  });
 
   // ===== Cek status backend (1 ping untuk semua agent berbasis HF) =====
   fetch(BACKEND_URL + "/", { cache: "no-store" })

@@ -1,0 +1,107 @@
+<!-- ============================================================
+     BMS SALES ASSISTANT — halaman tool (tempel ke Elementor: widget HTML)
+     Halaman terpisah, diakses dari kartu di dashboard AI agent.
+     ============================================================ -->
+<div id="bms">
+  <div class="bms-head">
+    <h2 class="bms-title">🏢 BMS Sales Assistant</h2>
+    <p class="bms-sub">Tempel chat customer (+ gambar CAD bila ada). Agent akan menerjemahkan permintaan teknis & memberi rekomendasi balasan untuk sales.</p>
+  </div>
+
+  <div class="bms-panel">
+    <label class="bms-label">Chat / Permintaan Customer</label>
+    <textarea id="bms-chat" placeholder="Tempel chat atau permintaan customer di sini..."></textarea>
+
+    <div class="bms-file-row">
+      <label class="bms-file-label">📎 Lampirkan Gambar CAD<input type="file" id="bms-image" accept="image/*" hidden></label>
+      <span id="bms-file-name" class="bms-file-name"></span>
+    </div>
+
+    <button id="bms-submit" class="bms-btn" type="button">✨ Analisa Permintaan</button>
+    <div id="bms-status" class="bms-status"></div>
+  </div>
+
+  <div id="bms-result" class="bms-result"></div>
+</div>
+
+<style>
+html, body { background:#0f1420 !important; }
+#bms { font-family:'Poppins', system-ui, sans-serif; max-width:820px; margin:0 auto; color:#e5e7eb; padding:28px 20px; }
+#bms * { box-sizing:border-box; }
+.bms-head { margin-bottom:20px; }
+.bms-title { font-size:26px; font-weight:800; margin:0; color:#f8fafc; }
+.bms-sub { margin:6px 0 0; color:#94a3b8; font-size:14px; line-height:1.6; }
+.bms-panel { background:#161c2a; border:1px solid #273044; border-radius:16px; padding:22px; }
+.bms-label { display:block; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:#94a3b8; margin-bottom:8px; }
+#bms-chat { width:100%; min-height:150px; background:#0f1420; border:1px solid #2a3344; border-radius:10px; color:#e5e7eb; padding:13px; font-family:inherit; font-size:14px; line-height:1.6; resize:vertical; }
+#bms-chat:focus { outline:none; border-color:#3b82f6; }
+.bms-file-row { display:flex; align-items:center; gap:10px; margin:14px 0; flex-wrap:wrap; }
+.bms-file-label { display:inline-flex; align-items:center; gap:6px; background:#1f2737; border:1px solid #3b4860; color:#cbd5e1; padding:10px 16px; border-radius:10px; cursor:pointer; font-size:13px; transition:background .15s; }
+.bms-file-label:hover { background:#273044; }
+.bms-file-name { font-size:12.5px; color:#94a3b8; }
+.bms-btn { width:100%; background:#3b82f6; color:#fff; border:none; font-family:inherit; font-weight:700; font-size:15px; padding:13px 16px; border-radius:10px; cursor:pointer; transition:background .15s; }
+.bms-btn:hover { background:#2563eb; }
+.bms-btn:disabled { opacity:.6; cursor:default; }
+.bms-status { font-size:13px; color:#fcd34d; margin-top:12px; text-align:center; }
+.bms-result { margin-top:18px; display:flex; flex-direction:column; gap:14px; }
+.bms-out { background:#161c2a; border:1px solid #273044; border-radius:14px; padding:18px 20px; }
+.bms-out-title { font-weight:700; font-size:14px; color:#93c5fd; margin-bottom:10px; }
+.bms-out.rec .bms-out-title { color:#86efac; }
+.bms-out-body { white-space:pre-wrap; font-size:14px; line-height:1.7; color:#cbd5e1; }
+.bms-copy { float:right; background:#1f2737; border:1px solid #3b4860; color:#cbd5e1; font-size:11px; padding:4px 10px; border-radius:7px; cursor:pointer; }
+.bms-copy:hover { background:#273044; }
+</style>
+
+<script>
+(function () {
+  var BACKEND_URL = "https://arapaza-ai-agent.hf.space";
+  var imgB64 = "", imgMime = "";
+
+  function esc(s) { return (s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+  document.getElementById("bms-image").addEventListener("change", function (e) {
+    var f = e.target.files[0];
+    var nameEl = document.getElementById("bms-file-name");
+    if (!f) { imgB64 = ""; imgMime = ""; nameEl.textContent = ""; return; }
+    imgMime = f.type || "image/png";
+    nameEl.textContent = "📎 " + f.name;
+    var reader = new FileReader();
+    reader.onload = function () { imgB64 = (reader.result || "").toString().split(",")[1] || ""; };
+    reader.readAsDataURL(f);
+  });
+
+  document.getElementById("bms-submit").addEventListener("click", function () {
+    var chat = document.getElementById("bms-chat").value.trim();
+    if (!chat && !imgB64) { alert("Tempel chat customer atau lampirkan gambar CAD dulu."); return; }
+    var btn = document.getElementById("bms-submit");
+    var statusEl = document.getElementById("bms-status");
+    var resEl = document.getElementById("bms-result");
+    btn.disabled = true; btn.textContent = "⏳ Menganalisa...";
+    statusEl.textContent = "Menganalisa permintaan... (bisa 10-40 detik, mohon tunggu)";
+    resEl.innerHTML = "";
+
+    fetch(BACKEND_URL + "/bms-sales", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat: chat, image_base64: imgB64, image_mime: imgMime })
+    })
+    .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+    .then(function (data) {
+      var info = data.informasi_permintaan || "-";
+      var rec  = data.rekomendasi_respond || "-";
+      resEl.innerHTML =
+        '<div class="bms-out"><div class="bms-out-title">📋 Informasi Permintaan Customer</div><div class="bms-out-body">' + esc(info) + '</div></div>' +
+        '<div class="bms-out rec"><button class="bms-copy" type="button">Salin</button><div class="bms-out-title">💬 Rekomendasi Respond Sales</div><div class="bms-out-body">' + esc(rec) + '</div></div>';
+      statusEl.textContent = "";
+      var copyBtn = resEl.querySelector(".bms-copy");
+      if (copyBtn) copyBtn.addEventListener("click", function () {
+        navigator.clipboard.writeText(rec).then(function () {
+          copyBtn.textContent = "✓ Tersalin"; setTimeout(function(){ copyBtn.textContent = "Salin"; }, 1500);
+        });
+      });
+    })
+    .catch(function (err) { statusEl.textContent = "❌ Gagal: " + err.message; })
+    .finally(function () { btn.disabled = false; btn.textContent = "✨ Analisa Permintaan"; });
+  });
+})();
+</script>
