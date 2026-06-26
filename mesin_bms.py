@@ -67,7 +67,8 @@ def _dwg_to_pdf_cloudconvert(dwg_bytes):
         "exp":  {"operation": "export/url", "input": "conv"},
     }}
     r = requests.post(CC_API + "/jobs", json=job, headers=H, timeout=60)
-    r.raise_for_status()
+    if r.status_code >= 400:
+        raise RuntimeError("buat job " + str(r.status_code) + ": " + r.text[:300])
     tasks = r.json()["data"]["tasks"]
     imp = next(t for t in tasks if t["name"] == "imp")
     exp = next(t for t in tasks if t["name"] == "exp")
@@ -76,17 +77,20 @@ def _dwg_to_pdf_cloudconvert(dwg_bytes):
     form = imp["result"]["form"]
     up = requests.post(form["url"], data=form["parameters"],
                        files={"file": ("drawing.dwg", dwg_bytes)}, timeout=180)
-    up.raise_for_status()
+    if up.status_code >= 400:
+        raise RuntimeError("upload " + str(up.status_code) + ": " + up.text[:200])
 
     # 3) Tunggu task export selesai (long-poll), lalu unduh PDF
     w = requests.get(CC_API + "/tasks/" + exp["id"] + "/wait", headers=H, timeout=300)
-    w.raise_for_status()
+    if w.status_code >= 400:
+        raise RuntimeError("wait " + str(w.status_code) + ": " + w.text[:200])
     task = w.json()["data"]
     if task.get("status") != "finished":
-        raise RuntimeError("CloudConvert gagal: " + str(task.get("message") or task.get("status")))
+        raise RuntimeError("convert gagal: " + str(task.get("message") or task.get("status")))
     pdf_url = task["result"]["files"][0]["url"]
     pdf = requests.get(pdf_url, timeout=180)
-    pdf.raise_for_status()
+    if pdf.status_code >= 400:
+        raise RuntimeError("download pdf " + str(pdf.status_code))
     return pdf.content
 
 
@@ -96,6 +100,7 @@ def analisa_bms(chat, image_base64="", image_mime="image/png"):
     isi = PROMPT_BMS + "\n\n=== CHAT CUSTOMER ===\n" + (chat if chat else "(tidak ada teks chat)")
 
     contents = [isi]
+    dwg_error = ""
 
     # Lampirkan file CAD (gambar / PDF / DWG) — opsional
     if image_base64 and types is not None:
@@ -112,8 +117,9 @@ def analisa_bms(chat, image_base64="", image_mime="image/png"):
                     file_bytes = _dwg_to_pdf_cloudconvert(file_bytes)
                     mime = "application/pdf"
                 except Exception as e:
+                    dwg_error = str(e)
                     contents[0] += ("\n\n(CATATAN: file DWG gagal dikonversi otomatis: "
-                                    + str(e)[:150] + ". Analisa hanya dari teks; minta sales kirim PDF/gambar.)")
+                                    + dwg_error[:150] + ". Analisa hanya dari teks; minta sales kirim PDF/gambar.)")
                     file_bytes = None
 
             if file_bytes:
@@ -134,4 +140,5 @@ def analisa_bms(chat, image_base64="", image_mime="image/png"):
     return {
         "informasi_permintaan": (data.get("informasi_permintaan") or "").strip(),
         "rekomendasi_respond":  (data.get("rekomendasi_respond") or "").strip(),
+        "konversi_error": dwg_error,   # kosong kalau sukses; isi pesan error kalau DWG gagal dikonversi
     }

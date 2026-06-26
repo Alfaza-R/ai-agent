@@ -12,7 +12,8 @@
       "Bash(git push *)",
       "Bash(python -m py_compile mesin_bms.py main.py)",
       "WebFetch(domain:api.github.com)",
-      "WebFetch(domain:anaconda.org)"
+      "WebFetch(domain:anaconda.org)",
+      "Bash(python -m py_compile mesin_bms.py)"
     ]
   }
 }
