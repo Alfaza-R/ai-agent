@@ -5,7 +5,12 @@
       "Bash(pandoc --version)",
       "PowerShell(& \"C:\\\\xampp\\\\php\\\\php.exe\" -l \"C:\\\\Users\\\\rayha\\\\Downloads\\\\intern-dashboard-extracted\\\\includes\\\\class-api-planner.php\")",
       "Bash(python -m py_compile mesin_agent.py main.py)",
-      "Bash(python -m py_compile mesin_seo.py main.py mesin_agent.py)"
+      "Bash(python -m py_compile mesin_seo.py main.py mesin_agent.py)",
+      "Bash(python -m py_compile main.py)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(python -m py_compile mesin_bms.py main.py)"
     ]
   }
 }

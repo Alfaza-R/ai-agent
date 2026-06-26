@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from mesin_agent import buat_brief   # ambil mesin agent yang tadi kita bikin
 from mesin_seo import cek_seo        # mesin cek SEO/readability ala Yoast
+from mesin_bms import analisa_bms    # asisten sales Building Management System
 
 # Bikin aplikasi backend-nya
 app = FastAPI()
@@ -53,3 +54,14 @@ def endpoint_cek_seo(pesanan: PesananCekSEO):
         pesanan.perbaiki,
     )
     return hasil
+
+# Pesanan untuk asisten sales BMS (chat customer + gambar CAD opsional)
+class PesananBMS(BaseModel):
+    chat: str = ""
+    image_base64: str = ""         # gambar CAD dalam base64 (opsional)
+    image_mime: str = "image/png"  # mis. image/png, image/jpeg
+
+# Loket asisten sales BMS: balikin informasi permintaan + rekomendasi respond
+@app.post("/bms-sales")
+def endpoint_bms_sales(pesanan: PesananBMS):
+    return analisa_bms(pesanan.chat, pesanan.image_base64, pesanan.image_mime)

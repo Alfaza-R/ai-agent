@@ -1,4 +1,10 @@
 .env
+
+# File berisi kredensial (app password, dll) — JANGAN di-upload
+appscriptsheetlama.txt
+appscript-baru.txt
+App Password web baru.txt
+
 __pycache__/
 *.pyc
 *.pyo

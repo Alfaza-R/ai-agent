@@ -1,0 +1,209 @@
+<!-- ============================================================
+     PUSAT AI AGENT — Dashboard (tempel ke Elementor: widget HTML)
+     Edit bagian KONFIGURASI di bawah sesuai URL milikmu.
+     ============================================================ -->
+<div id="aihub">
+  <div class="aihub-head">
+    <div>
+      <h2 class="aihub-title">🤖 Pusat AI Agent</h2>
+      <p class="aihub-sub">Kendali semua agent AI dalam satu tempat</p>
+    </div>
+    <div class="aihub-status" id="aihub-backend">
+      <span class="aihub-dot pending"></span><span>Cek status backend…</span>
+    </div>
+  </div>
+  <div class="aihub-grid" id="aihub-grid"></div>
+</div>
+
+<!-- ===== Modal Tool: BMS Sales Assistant ===== -->
+<div id="bms-modal" class="bms-overlay">
+  <div class="bms-modal">
+    <div class="bms-modal-head">
+      <h3>🏢 BMS Sales Assistant</h3>
+      <button class="bms-close" type="button">✕</button>
+    </div>
+    <p class="bms-hint">Tempel chat customer, lampirkan gambar CAD (opsional), lalu klik Analisa.</p>
+    <textarea id="bms-chat" placeholder="Tempel chat / permintaan customer di sini..."></textarea>
+    <div class="bms-file-row">
+      <label class="bms-file-label">📎 Lampirkan CAD<input type="file" id="bms-image" accept="image/*" hidden></label>
+      <span id="bms-file-name" class="bms-file-name"></span>
+    </div>
+    <button id="bms-submit" class="aihub-btn" type="button">✨ Analisa</button>
+    <div id="bms-status" class="bms-status"></div>
+    <div id="bms-result" class="bms-result"></div>
+  </div>
+</div>
+
+<style>
+/* Buat seluruh halaman ikut gelap, hilangkan putih di belakang widget */
+html, body { background: #0f1420 !important; }
+#aihub { font-family: 'Poppins', system-ui, sans-serif; max-width: 1100px; margin: 0 auto; color: #e5e7eb;
+         background: transparent; padding: 28px 20px; }
+#aihub * { box-sizing: border-box; }
+.aihub-head { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px; margin-bottom:22px; }
+.aihub-title { font-size:26px; font-weight:800; margin:0; color:#f8fafc; }
+.aihub-sub { margin:4px 0 0; color:#94a3b8; font-size:14px; }
+.aihub-status { display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; background:#1a2130; color:#cbd5e1; padding:8px 14px; border-radius:999px; border:1px solid #2a3344; }
+.aihub-dot { width:10px; height:10px; border-radius:50%; display:inline-block; flex-shrink:0; }
+.aihub-dot.online { background:#22c55e; box-shadow:0 0 0 4px rgba(34,197,94,.22); }
+.aihub-dot.offline { background:#ef4444; box-shadow:0 0 0 4px rgba(239,68,68,.22); }
+.aihub-dot.pending { background:#f59e0b; }
+.aihub-dot.static  { background:#3b82f6; }
+.aihub-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:18px; }
+.aihub-card { background:#161c2a; border:1px solid #273044; border-radius:16px; padding:22px; display:flex; flex-direction:column; box-shadow:0 4px 18px rgba(0,0,0,.35); transition:transform .15s, box-shadow .15s, border-color .15s; }
+.aihub-card:hover { transform:translateY(-3px); box-shadow:0 12px 30px rgba(0,0,0,.5); border-color:#3b4860; }
+.aihub-card-top { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
+.aihub-icon { width:48px; height:48px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:24px; flex-shrink:0; }
+.aihub-card h3 { margin:0; font-size:17px; font-weight:700; color:#f1f5f9; }
+.aihub-badge { font-size:11px; font-weight:700; padding:3px 9px; border-radius:999px; display:inline-flex; align-items:center; gap:5px; margin-top:3px; }
+.aihub-desc { color:#94a3b8; font-size:13.5px; line-height:1.6; flex:1; margin:0 0 16px; }
+.aihub-btn { display:inline-block; text-align:center; text-decoration:none; background:#3b82f6; color:#fff !important; font-weight:600; font-size:13.5px; padding:11px 16px; border-radius:10px; transition:background .15s; }
+.aihub-btn:hover { background:#2563eb; }
+.aihub-btn.ghost { background:transparent; color:#cbd5e1 !important; border:1px solid #3b4860; margin-top:8px; }
+.aihub-btn.ghost:hover { background:#1f2737; }
+/* ===== Modal BMS ===== */
+.bms-overlay { position:fixed; inset:0; background:rgba(0,0,0,.72); display:none; align-items:flex-start; justify-content:center; padding:40px 16px; z-index:99999; overflow-y:auto; }
+.bms-overlay.open { display:flex; }
+.bms-modal { background:#141a27; border:1px solid #2a3344; border-radius:16px; width:100%; max-width:640px; padding:24px; font-family:'Poppins',sans-serif; color:#e5e7eb; }
+.bms-modal-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
+.bms-modal-head h3 { margin:0; font-size:18px; color:#f1f5f9; }
+.bms-close { background:#1f2737; border:1px solid #3b4860; color:#cbd5e1; width:32px; height:32px; border-radius:8px; cursor:pointer; font-size:14px; }
+.bms-hint { color:#94a3b8; font-size:12.5px; margin:0 0 14px; }
+#bms-chat { width:100%; min-height:120px; background:#0f1420; border:1px solid #2a3344; border-radius:10px; color:#e5e7eb; padding:12px; font-family:inherit; font-size:13.5px; resize:vertical; }
+.bms-file-row { display:flex; align-items:center; gap:10px; margin:12px 0; flex-wrap:wrap; }
+.bms-file-label { display:inline-flex; align-items:center; gap:6px; background:#1f2737; border:1px solid #3b4860; color:#cbd5e1; padding:9px 14px; border-radius:10px; cursor:pointer; font-size:13px; }
+.bms-file-name { font-size:12px; color:#94a3b8; }
+.bms-status { font-size:12.5px; color:#fcd34d; margin-top:10px; }
+.bms-result { margin-top:14px; display:flex; flex-direction:column; gap:12px; }
+.bms-out { background:#0f1420; border:1px solid #273044; border-radius:12px; padding:14px 16px; }
+.bms-out-title { font-weight:700; font-size:13px; color:#93c5fd; margin-bottom:8px; }
+.bms-out-body { white-space:pre-wrap; font-size:13.5px; line-height:1.6; color:#cbd5e1; }
+#bms-submit { width:100%; }
+</style>
+
+<script>
+(function () {
+  // ===== KONFIGURASI (edit sesuai punyamu) =====
+  var BACKEND_URL = "https://arapaza-ai-agent.hf.space";
+  var LINK_DASHBOARD_INTERN = "https://eknowledge.taharica.com/admin-dashboard-intern/";
+  var LINK_SPREADSHEET      = "https://docs.google.com/spreadsheets/d/1086rJ803Dl5K-YZIFBbF6ObLE5Upt7mnJcokpLvbVEM/edit";
+  var LINK_API_DOCS         = BACKEND_URL + "/docs";
+
+  // ===== Daftar agent =====
+  var AGENTS = [
+    {
+      icon:"🗂️", bg:"rgba(59,130,246,.16)",
+      nama:"Content Planner",
+      desc:"Bikin brief konten per-slide (Instagram, LinkedIn, dll) otomatis dari topik + link referensi. Langsung jadi task untuk tim desain.",
+      live:true,
+      btn:{ text:"Buka Dashboard Intern", url:LINK_DASHBOARD_INTERN },
+    },
+    {
+      icon:"✍️", bg:"rgba(34,197,94,.16)",
+      nama:"Article + SEO Generator",
+      desc:"Generate artikel SEO lengkap dari keyword, auto cek & perbaiki ala Yoast, lalu publish draft ke 9 website WordPress.",
+      live:false, staticLabel:"Google Sheet",
+      btn:{ text:"Buka Spreadsheet", url:LINK_SPREADSHEET },
+    },
+    {
+      icon:"🔎", bg:"rgba(239,68,68,.16)",
+      nama:"SEO Checker",
+      desc:"Nilai artikel pakai standar Yoast (SEO + readability), kasih skor, checklist, dan saran perbaikan. Dipakai oleh generator artikel.",
+      live:true,
+      btn:{ text:"Lihat API Docs", url:LINK_API_DOCS },
+    },
+    {
+      icon:"🏢", bg:"rgba(168,85,247,.16)",
+      nama:"BMS Sales Assistant",
+      desc:"Tempel chat customer (+ gambar CAD). Agent menerjemahkan permintaan teknis yang rumit jadi mudah dipahami, lalu memberi rekomendasi balasan siap pakai untuk sales.",
+      live:true, tool:"bms",
+      btn:{ text:"🚀 Buka Tool" },
+    },
+  ];
+
+  function badge(a) {
+    if (a.live) return '<span class="aihub-badge" data-live="1" style="background:rgba(245,158,11,.18);color:#fcd34d;"><span class="aihub-dot pending"></span>cek…</span>';
+    return '<span class="aihub-badge" style="background:rgba(59,130,246,.18);color:#93c5fd;"><span class="aihub-dot static"></span>' + (a.staticLabel || "Aktif") + '</span>';
+  }
+
+  var grid = document.getElementById("aihub-grid");
+  grid.innerHTML = AGENTS.map(function (a) {
+    var extra;
+    if (a.tool === "bms") {
+      extra = '<button class="aihub-btn aihub-bms-open" type="button">' + a.btn.text + '</button>';
+    } else if (a.btn.url.indexOf("GANTI_") === 0) {
+      extra = '<span class="aihub-btn ghost" title="Edit URL di kode dashboard">⚠️ Set URL dulu</span>';
+    } else {
+      extra = '<a class="aihub-btn" href="' + a.btn.url + '" target="_blank" rel="noopener">' + a.btn.text + '</a>';
+    }
+    return '<div class="aihub-card">'
+      + '<div class="aihub-card-top"><div class="aihub-icon" style="background:' + a.bg + '">' + a.icon + '</div>'
+      + '<div><h3>' + a.nama + '</h3>' + badge(a) + '</div></div>'
+      + '<p class="aihub-desc">' + a.desc + '</p>'
+      + extra + '</div>';
+  }).join("");
+
+  // ===== Tool BMS Sales Assistant =====
+  var bmsImageB64 = "", bmsImageMime = "";
+  function openBMS()  { document.getElementById("bms-modal").classList.add("open"); }
+  function closeBMS() { document.getElementById("bms-modal").classList.remove("open"); }
+  function esc(s) { return (s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+  var bmsOpenBtn = document.querySelector(".aihub-bms-open");
+  if (bmsOpenBtn) bmsOpenBtn.addEventListener("click", openBMS);
+  document.querySelector(".bms-close").addEventListener("click", closeBMS);
+  document.getElementById("bms-modal").addEventListener("click", function (e) {
+    if (e.target.id === "bms-modal") closeBMS();
+  });
+  document.getElementById("bms-image").addEventListener("change", function (e) {
+    var f = e.target.files[0];
+    var nameEl = document.getElementById("bms-file-name");
+    if (!f) { bmsImageB64 = ""; bmsImageMime = ""; nameEl.textContent = ""; return; }
+    bmsImageMime = f.type || "image/png";
+    nameEl.textContent = "📎 " + f.name;
+    var reader = new FileReader();
+    reader.onload = function () { bmsImageB64 = (reader.result || "").toString().split(",")[1] || ""; };
+    reader.readAsDataURL(f);
+  });
+  document.getElementById("bms-submit").addEventListener("click", function () {
+    var chat = document.getElementById("bms-chat").value.trim();
+    if (!chat && !bmsImageB64) { alert("Tempel chat customer atau lampirkan gambar CAD dulu."); return; }
+    var btn = document.getElementById("bms-submit");
+    var statusEl = document.getElementById("bms-status");
+    var resEl = document.getElementById("bms-result");
+    btn.disabled = true; btn.textContent = "⏳ Menganalisa...";
+    statusEl.textContent = "Menganalisa permintaan... (bisa 10-40 detik)";
+    resEl.innerHTML = "";
+    fetch(BACKEND_URL + "/bms-sales", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat: chat, image_base64: bmsImageB64, image_mime: bmsImageMime })
+    })
+    .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+    .then(function (data) {
+      resEl.innerHTML =
+        '<div class="bms-out"><div class="bms-out-title">📋 Informasi Permintaan Customer</div><div class="bms-out-body">' + esc(data.informasi_permintaan || "-") + '</div></div>' +
+        '<div class="bms-out"><div class="bms-out-title">💬 Rekomendasi Respond Sales</div><div class="bms-out-body">' + esc(data.rekomendasi_respond || "-") + '</div></div>';
+      statusEl.textContent = "";
+    })
+    .catch(function (err) { statusEl.textContent = "❌ Gagal: " + err.message; })
+    .finally(function () { btn.disabled = false; btn.textContent = "✨ Analisa"; });
+  });
+
+  // ===== Cek status backend (1 ping untuk semua agent berbasis HF) =====
+  fetch(BACKEND_URL + "/", { cache: "no-store" })
+    .then(function (r) { return r.ok; })
+    .then(function (ok) { setBackend(ok); })
+    .catch(function () { setBackend(false); });
+
+  function setBackend(ok) {
+    var el = document.getElementById("aihub-backend");
+    el.innerHTML = '<span class="aihub-dot ' + (ok ? "online" : "offline") + '"></span><span>Backend AI ' + (ok ? "Online" : "Offline") + '</span>';
+    document.querySelectorAll('.aihub-badge[data-live="1"]').forEach(function (b) {
+      b.style.background = ok ? "rgba(34,197,94,.18)" : "rgba(239,68,68,.18)";
+      b.style.color = ok ? "#86efac" : "#fca5a5";
+      b.innerHTML = '<span class="aihub-dot ' + (ok ? "online" : "offline") + '"></span>' + (ok ? "Online" : "Offline");
+    });
+  }
+})();
+</script>
