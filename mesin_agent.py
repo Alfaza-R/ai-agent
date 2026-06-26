@@ -102,7 +102,16 @@ Pastikan isi nyambung dengan produk dari informasi di atas."""
         model="gemini-3.1-flash-lite",
         contents=perintah,
     )
-    return response.text
+    hasil = response.text
+
+    # Brief Checker: cek koherensi/relevansi, rewrite otomatis kalau perlu (maks 2x)
+    try:
+        from mesin_brief_checker import periksa_dan_perbaiki
+        hasil = periksa_dan_perbaiki(hasil, topik, platform)
+    except Exception:
+        pass  # kalau checker error, pakai brief asli supaya generate tetap jalan
+
+    return hasil
 
 
 def buat_brief(topik, link, daftar_platform, jumlah=1):

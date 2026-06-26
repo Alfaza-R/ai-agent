@@ -91,10 +91,13 @@ html, body { background:#0f1420 !important; }
     .then(function (data) {
       var info = data.informasi_permintaan || "-";
       var rec  = data.rekomendasi_respond || "-";
+      if (data.konversi_error) {
+        statusEl.innerHTML = '<span style="color:#fca5a5;">⚠️ Konversi DWG gagal: ' + esc(data.konversi_error) + '</span>';
+      }
       resEl.innerHTML =
         '<div class="bms-out"><div class="bms-out-title">📋 Informasi Permintaan Customer</div><div class="bms-out-body">' + esc(info) + '</div></div>' +
         '<div class="bms-out rec"><button class="bms-copy" type="button">Salin</button><div class="bms-out-title">💬 Rekomendasi Respond Sales</div><div class="bms-out-body">' + esc(rec) + '</div></div>';
-      statusEl.textContent = "";
+      if (!data.konversi_error) statusEl.textContent = "";
       var copyBtn = resEl.querySelector(".bms-copy");
       if (copyBtn) copyBtn.addEventListener("click", function () {
         navigator.clipboard.writeText(rec).then(function () {

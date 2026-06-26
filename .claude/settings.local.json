@@ -13,7 +13,8 @@
       "Bash(python -m py_compile mesin_bms.py main.py)",
       "WebFetch(domain:api.github.com)",
       "WebFetch(domain:anaconda.org)",
-      "Bash(python -m py_compile mesin_bms.py)"
+      "Bash(python -m py_compile mesin_bms.py)",
+      "Bash(python -m py_compile mesin_brief_checker.py mesin_agent.py main.py)"
     ]
   }
 }
