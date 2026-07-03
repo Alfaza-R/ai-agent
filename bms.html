@@ -49,6 +49,9 @@ html, body { background:#0f1420 !important; }
 .bms-out { background:#161c2a; border:1px solid #273044; border-radius:14px; padding:18px 20px; }
 .bms-out-title { font-weight:700; font-size:14px; color:#93c5fd; margin-bottom:10px; }
 .bms-out.rec .bms-out-title { color:#86efac; }
+.bms-out.tech .bms-out-title { color:#c4b5fd; }
+.bms-out.warn { border-color:#7c5e1e; }
+.bms-out.warn .bms-out-title { color:#fcd34d; }
 .bms-out-body { white-space:pre-wrap; font-size:14px; line-height:1.7; color:#cbd5e1; }
 .bms-copy { float:right; background:#1f2737; border:1px solid #3b4860; color:#cbd5e1; font-size:11px; padding:4px 10px; border-radius:7px; cursor:pointer; }
 .bms-copy:hover { background:#273044; }
@@ -89,19 +92,26 @@ html, body { background:#0f1420 !important; }
     })
     .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
     .then(function (data) {
-      var info = data.informasi_permintaan || "-";
-      var rec  = data.rekomendasi_respond || "-";
+      var awam = data.output_awam || "-";
+      var tech = data.output_technical || "-";
+      var inkon = data.inkonsistensi || [];
       if (data.konversi_error) {
         statusEl.innerHTML = '<span style="color:#fca5a5;">⚠️ Konversi DWG gagal: ' + esc(data.konversi_error) + '</span>';
       }
+      var inkonHtml = inkon.length
+        ? '<div class="bms-out warn"><div class="bms-out-title">⚠️ Perlu Diperiksa (Inkonsistensi/Miss)</div><div class="bms-out-body">- ' + inkon.map(esc).join('\n- ') + '</div></div>'
+        : '';
       resEl.innerHTML =
-        '<div class="bms-out"><div class="bms-out-title">📋 Informasi Permintaan Customer</div><div class="bms-out-body">' + esc(info) + '</div></div>' +
-        '<div class="bms-out rec"><button class="bms-copy" type="button">Salin</button><div class="bms-out-title">💬 Rekomendasi Respond Sales</div><div class="bms-out-body">' + esc(rec) + '</div></div>';
+        '<div class="bms-out"><button class="bms-copy" data-copy="awam" type="button">Salin</button><div class="bms-out-title">🙂 Output Awam (untuk Sales)</div><div class="bms-out-body">' + esc(awam) + '</div></div>' +
+        '<div class="bms-out tech"><button class="bms-copy" data-copy="tech" type="button">Salin</button><div class="bms-out-title">🔧 Output Teknis (untuk Tim Teknik)</div><div class="bms-out-body">' + esc(tech) + '</div></div>' +
+        inkonHtml;
       if (!data.konversi_error) statusEl.textContent = "";
-      var copyBtn = resEl.querySelector(".bms-copy");
-      if (copyBtn) copyBtn.addEventListener("click", function () {
-        navigator.clipboard.writeText(rec).then(function () {
-          copyBtn.textContent = "✓ Tersalin"; setTimeout(function(){ copyBtn.textContent = "Salin"; }, 1500);
+      resEl.querySelectorAll(".bms-copy").forEach(function (b) {
+        b.addEventListener("click", function () {
+          var t = b.getAttribute("data-copy") === "tech" ? tech : awam;
+          navigator.clipboard.writeText(t).then(function () {
+            b.textContent = "✓ Tersalin"; setTimeout(function () { b.textContent = "Salin"; }, 1500);
+          });
         });
       });
     })

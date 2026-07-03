@@ -23,31 +23,6 @@ except Exception:  # jaga-jaga kalau path import beda
     types = None
 
 
-PROMPT_BMS = """Kamu adalah asisten teknis untuk tim SALES Building Management System (BMS).
-Customer sering memakai bahasa teknis yang rumit, dan kadang melampirkan gambar CAD/denah yang sulit dipahami sales.
-
-Tugasmu: baca chat customer (dan gambar CAD bila ada), lalu bantu sales memahaminya.
-
-Hasilkan TEPAT 2 bagian dalam Bahasa Indonesia yang jelas dan ringkas (boleh pakai poin dengan tanda "-" dan baris baru):
-
-1. informasi_permintaan: Terjemahkan & rangkum kebutuhan customer ke bahasa sederhana yang mudah dipahami sales. Sebutkan:
-   - Apa yang sebenarnya diminta customer.
-   - Sistem/perangkat BMS yang relevan (mis. HVAC, fire alarm, access control, CCTV, lighting control, sensor, controller, integrasi SCADA/Modbus/BACnet, dll).
-   - Skala / lokasi / jumlah titik bila disebut, dan poin teknis penting dari gambar CAD bila ada.
-   - Jika ada info yang kurang atau ambigu, tuliskan daftar pertanyaan klarifikasi yang perlu ditanyakan ke customer.
-
-2. rekomendasi_respond: Saran balasan yang SIAP PAKAI untuk sales (sopan, profesional, ramah). Termasuk:
-   - Konfirmasi pemahaman atas permintaan.
-   - Pertanyaan klarifikasi yang perlu diajukan.
-   - Solusi / produk yang relevan untuk ditawarkan.
-   - Langkah selanjutnya (mis. minta dokumen/spesifikasi, jadwalkan survei, kirim penawaran).
-
-Jika gambar CAD tidak terbaca jelas, katakan terus terang dan minta sales mengonfirmasi, jangan mengarang.
-
-Kembalikan HANYA JSON valid (tanpa backtick, tanpa teks lain):
-{"informasi_permintaan":"...", "rekomendasi_respond":"..."}"""
-
-
 def _is_dwg(b):
     # DWG diawali signature "AC10xx" (mis. AC1027, AC1032)
     return len(b) >= 6 and b[:2] == b"AC" and b[2:6].isdigit()
@@ -94,51 +69,120 @@ def _dwg_to_pdf_cloudconvert(dwg_bytes):
     return pdf.content
 
 
+def _gen(prompt, file_bytes=None, mime=None):
+    contents = [prompt]
+    if file_bytes and types is not None:
+        contents.append(types.Part.from_bytes(data=file_bytes, mime_type=mime or "image/png"))
+    resp = client.models.generate_content(model="gemini-3.1-flash-lite", contents=contents)
+    return (resp.text or "").strip()
+
+
+def _json(txt, fallback):
+    t = re.sub(r"```json|```", "", txt or "").strip()
+    try:
+        d = json.loads(t)
+        return d if isinstance(d, dict) else fallback
+    except Exception:
+        return fallback
+
+
+# ── Agent 1: Reader teks ──────────────────────────────────────────────
+def _agent_reader_teks(chat):
+    if not chat:
+        return "(Tidak ada teks chat dari customer.)"
+    prompt = (
+        "Kamu Agent Reader (teks) untuk tim sales BMS. Baca chat customer, lalu ekstrak SEMUA info penting "
+        "secara terstruktur (poin '-'): permintaan/kebutuhan, sistem/perangkat yang disebut (HVAC, fire alarm, "
+        "CCTV, access control, lighting, sensor, controller, protokol BACnet/Modbus/SCADA, dll), skala/lokasi/"
+        "jumlah titik, budget/timeline bila ada, serta hal yang ambigu/kurang jelas. JANGAN menyimpulkan solusi, "
+        "hanya rangkum yang tertulis.\n\n=== CHAT CUSTOMER ===\n" + chat
+    )
+    return _gen(prompt)
+
+
+# ── Agent 2: Reader visual (gambar / CAD / PDF) ───────────────────────
+def _agent_reader_visual(file_bytes, mime):
+    if not file_bytes:
+        return "(Tidak ada gambar/CAD/PDF dari customer.)"
+    prompt = (
+        "Kamu Agent Reader (visual) untuk tim sales BMS. Baca gambar/CAD/PDF terlampir (denah/skema/diagram). "
+        "Ekstrak info teknis terstruktur (poin '-'): jenis gambar (denah lantai, single-line diagram, diagram "
+        "sistem, dll), sistem/perangkat yang terlihat, titik/zona/jumlah unit, label/anotasi/legenda penting, "
+        "skala/dimensi bila ada. Kalau ada bagian tidak terbaca, katakan jujur. JANGAN mengarang."
+    )
+    return _gen(prompt, file_bytes, mime)
+
+
+# ── Agent 3: Checker (konsistensi teks vs visual) ─────────────────────
+def _agent_checker(teks_info, visual_info):
+    prompt = (
+        "Kamu Agent Checker untuk tim sales BMS. Bandingkan & satukan dua sumber info di bawah "
+        "(dari teks customer & dari gambar/CAD). Tugasmu: cek konsistensi, temukan MISS/ambiguitas/kontradiksi "
+        "antara teks dan gambar, lalu susun daftar informasi final yang sudah diverifikasi.\n\n"
+        "Kembalikan HANYA JSON valid (tanpa backtick): "
+        "{\"info_terverifikasi\":\"ringkasan poin yang sudah dicek\", \"inkonsistensi\":[\"...\"], "
+        "\"pertanyaan_klarifikasi\":[\"...\"]}\n\n"
+        "=== INFO DARI TEKS ===\n" + teks_info + "\n\n=== INFO DARI GAMBAR/CAD ===\n" + visual_info
+    )
+    return _json(_gen(prompt), {
+        "info_terverifikasi": teks_info + "\n" + visual_info,
+        "inkonsistensi": [], "pertanyaan_klarifikasi": [],
+    })
+
+
+# ── Agent 4: Result (2 output: awam & teknis) ─────────────────────────
+def _agent_result(checker):
+    info  = checker.get("info_terverifikasi", "") or ""
+    inkon = checker.get("inkonsistensi", []) or []
+    tanya = checker.get("pertanyaan_klarifikasi", []) or []
+    prompt = (
+        "Kamu Agent Result untuk tim sales BMS. Berdasarkan info terverifikasi + catatan di bawah, buat DUA output "
+        "dalam Bahasa Indonesia:\n"
+        "1. output_awam: penjelasan singkat + rekomendasi balasan untuk SALES yang tidak teknis (bahasa sederhana, "
+        "siap dipakai membalas customer).\n"
+        "2. output_technical: rangkuman teknis mendetail untuk tim teknik/engineer (sistem, perangkat, protokol, "
+        "titik/zona, poin dari CAD, spesifikasi, dan pertanyaan teknis yang perlu).\n"
+        "Sertakan pertanyaan klarifikasi bila ada. JANGAN mengarang di luar data.\n\n"
+        "Kembalikan HANYA JSON valid (tanpa backtick): {\"output_awam\":\"...\", \"output_technical\":\"...\"}\n\n"
+        "=== INFO TERVERIFIKASI ===\n" + info +
+        "\n\n=== INKONSISTENSI/CATATAN ===\n" + ("; ".join(map(str, inkon)) or "-") +
+        "\n\n=== PERTANYAAN KLARIFIKASI ===\n" + ("; ".join(map(str, tanya)) or "-")
+    )
+    return _json(_gen(prompt), {"output_awam": "", "output_technical": ""})
+
+
 def analisa_bms(chat, image_base64="", image_mime="image/png"):
     chat = (chat or "").strip()
-
-    isi = PROMPT_BMS + "\n\n=== CHAT CUSTOMER ===\n" + (chat if chat else "(tidak ada teks chat)")
-
-    contents = [isi]
     dwg_error = ""
+    file_bytes = None
+    mime = None
 
-    # Lampirkan file CAD (gambar / PDF / DWG) — opsional
+    # Siapkan file (gambar / PDF / DWG->PDF) — opsional
     if image_base64 and types is not None:
         try:
             file_bytes = base64.b64decode(image_base64)
         except (binascii.Error, ValueError):
             file_bytes = None
-
         if file_bytes:
             mime = image_mime or "image/png"
-            # Kalau DWG: konversi dulu ke PDF via CloudConvert
             if _is_dwg(file_bytes) or (image_mime or "").lower().find("dwg") != -1:
                 try:
                     file_bytes = _dwg_to_pdf_cloudconvert(file_bytes)
                     mime = "application/pdf"
                 except Exception as e:
                     dwg_error = str(e)
-                    contents[0] += ("\n\n(CATATAN: file DWG gagal dikonversi otomatis: "
-                                    + dwg_error[:150] + ". Analisa hanya dari teks; minta sales kirim PDF/gambar.)")
                     file_bytes = None
 
-            if file_bytes:
-                contents.append(types.Part.from_bytes(data=file_bytes, mime_type=mime))
-
-    response = client.models.generate_content(
-        model="gemini-3.1-flash-lite",
-        contents=contents,
-    )
-
-    txt = re.sub(r"```json|```", "", response.text or "").strip()
-    try:
-        data = json.loads(txt)
-    except Exception:
-        # fallback kalau model tidak balas JSON rapi
-        data = {"informasi_permintaan": response.text or "", "rekomendasi_respond": ""}
+    # ── Pipeline multi-agent ──
+    teks_info   = _agent_reader_teks(chat)
+    visual_info = _agent_reader_visual(file_bytes, mime)
+    checker     = _agent_checker(teks_info, visual_info)
+    hasil       = _agent_result(checker)
 
     return {
-        "informasi_permintaan": (data.get("informasi_permintaan") or "").strip(),
-        "rekomendasi_respond":  (data.get("rekomendasi_respond") or "").strip(),
-        "konversi_error": dwg_error,   # kosong kalau sukses; isi pesan error kalau DWG gagal dikonversi
+        "output_awam":            (hasil.get("output_awam") or "").strip(),
+        "output_technical":       (hasil.get("output_technical") or "").strip(),
+        "inkonsistensi":          checker.get("inkonsistensi", []) or [],
+        "pertanyaan_klarifikasi": checker.get("pertanyaan_klarifikasi", []) or [],
+        "konversi_error":         dwg_error,
     }
