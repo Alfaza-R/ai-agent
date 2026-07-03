@@ -130,23 +130,66 @@ def _agent_checker(teks_info, visual_info):
     })
 
 
-# ── Agent 4: Result (2 output: awam & teknis) ─────────────────────────
-def _agent_result(checker):
-    info  = checker.get("info_terverifikasi", "") or ""
-    inkon = checker.get("inkonsistensi", []) or []
-    tanya = checker.get("pertanyaan_klarifikasi", []) or []
+# ── Agent: Product (fokus Azbil, fallback cari web) ───────────────────
+def _gen_search(prompt):
+    """Generate dengan Google Search grounding; fallback ke tanpa-search bila tidak didukung."""
+    if types is not None:
+        try:
+            cfg = types.GenerateContentConfig(tools=[types.Tool(google_search=types.GoogleSearch())])
+            resp = client.models.generate_content(model="gemini-3.1-flash-lite", contents=[prompt], config=cfg)
+            return (resp.text or "").strip()
+        except Exception:
+            pass
+    return _gen(prompt)
+
+
+def _agent_product(info):
     prompt = (
-        "Kamu Agent Result untuk tim sales BMS. Berdasarkan info terverifikasi + catatan di bawah, buat DUA output "
-        "dalam Bahasa Indonesia:\n"
+        "Kamu Agent Product untuk solusi Building Management System. Berdasarkan kebutuhan terverifikasi di bawah, "
+        "rekomendasikan produk untuk tiap kebutuhan.\n"
+        "PRIORITAS UTAMA: produk merek AZBIL (Yamatake) — mis. controller, sensor suhu/kelembapan/tekanan, "
+        "actuator, control valve, damper actuator, differential pressure switch, dll. Sebutkan seri/model Azbil "
+        "yang cocok bila kamu yakin.\n"
+        "Jika TIDAK ADA produk Azbil yang cocok untuk suatu kebutuhan, CARI di web produk alternatif dari merek "
+        "lain yang relevan, sebutkan merek + tipe-nya dan tandai '(alternatif non-Azbil)'.\n"
+        "Format: daftar per kebutuhan -> produk + merek + fungsi singkat. Jangan mengarang model spesifik yang "
+        "tidak kamu yakini; kalau ragu sebut kategori produknya.\n\n"
+        "=== KEBUTUHAN TERVERIFIKASI ===\n" + info
+    )
+    return _gen_search(prompt)
+
+
+# ── Agent: Technical (skematik kerja + jumlah barang) ─────────────────
+def _agent_technical(info, produk):
+    prompt = (
+        "Kamu Agent Technical BMS. Dari kebutuhan + produk terpilih di bawah, susun:\n"
+        "1. SKEMATIK / ALUR KERJA SISTEM: jelaskan topologi & cara kerja secara teknis (boleh diagram teks/ASCII "
+        "sederhana, mis. sensor -> controller -> actuator, jalur komunikasi BACnet/Modbus).\n"
+        "2. BILL OF MATERIALS (jumlah barang): daftar komponen + estimasi jumlah unit. Kalau jumlah titik tidak "
+        "pasti, beri estimasi dan tulis asumsinya.\n"
+        "3. CATATAN INTEGRASI: protokol, wiring/power, hal teknis penting.\n"
+        "Bahasa Indonesia teknis yang jelas. Jangan mengarang angka pasti; tandai yang berupa estimasi.\n\n"
+        "=== KEBUTUHAN TERVERIFIKASI ===\n" + info +
+        "\n\n=== PRODUK TERPILIH ===\n" + produk
+    )
+    return _gen(prompt)
+
+
+# ── Agent: Result (2 output: awam & teknis) ───────────────────────────
+def _agent_result(info, inkon, tanya, produk, teknis):
+    prompt = (
+        "Kamu Agent Result untuk tim sales BMS. Berdasarkan SELURUH data di bawah, buat DUA output Bahasa Indonesia:\n"
         "1. output_awam: penjelasan singkat + rekomendasi balasan untuk SALES yang tidak teknis (bahasa sederhana, "
-        "siap dipakai membalas customer).\n"
-        "2. output_technical: rangkuman teknis mendetail untuk tim teknik/engineer (sistem, perangkat, protokol, "
-        "titik/zona, poin dari CAD, spesifikasi, dan pertanyaan teknis yang perlu).\n"
+        "siap dipakai membalas customer; boleh sebut produk secara umum).\n"
+        "2. output_technical: rangkuman teknis mendetail untuk tim teknik (sistem, produk Azbil/alternatif, skematik "
+        "kerja, jumlah barang/BOM, protokol, dan pertanyaan teknis).\n"
         "Sertakan pertanyaan klarifikasi bila ada. JANGAN mengarang di luar data.\n\n"
         "Kembalikan HANYA JSON valid (tanpa backtick): {\"output_awam\":\"...\", \"output_technical\":\"...\"}\n\n"
         "=== INFO TERVERIFIKASI ===\n" + info +
-        "\n\n=== INKONSISTENSI/CATATAN ===\n" + ("; ".join(map(str, inkon)) or "-") +
-        "\n\n=== PERTANYAAN KLARIFIKASI ===\n" + ("; ".join(map(str, tanya)) or "-")
+        "\n\n=== INKONSISTENSI ===\n" + ("; ".join(map(str, inkon)) or "-") +
+        "\n\n=== PERTANYAAN KLARIFIKASI ===\n" + ("; ".join(map(str, tanya)) or "-") +
+        "\n\n=== PRODUK ===\n" + produk +
+        "\n\n=== TEKNIS/SKEMATIK ===\n" + teknis
     )
     return _json(_gen(prompt), {"output_awam": "", "output_technical": ""})
 
@@ -177,12 +220,22 @@ def analisa_bms(chat, image_base64="", image_mime="image/png"):
     teks_info   = _agent_reader_teks(chat)
     visual_info = _agent_reader_visual(file_bytes, mime)
     checker     = _agent_checker(teks_info, visual_info)
-    hasil       = _agent_result(checker)
+    info        = checker.get("info_terverifikasi", "") or (teks_info + "\n" + visual_info)
+    inkon       = checker.get("inkonsistensi", []) or []
+    tanya       = checker.get("pertanyaan_klarifikasi", []) or []
+    produk      = _agent_product(info)
+    teknis      = _agent_technical(info, produk)
+    hasil       = _agent_result(info, inkon, tanya, produk, teknis)
 
     return {
+        "reader_teks":            teks_info,
+        "reader_visual":          visual_info,
+        "info_terverifikasi":     info,
+        "inkonsistensi":          inkon,
+        "pertanyaan_klarifikasi": tanya,
+        "produk":                 produk,
+        "teknis":                 teknis,
         "output_awam":            (hasil.get("output_awam") or "").strip(),
         "output_technical":       (hasil.get("output_technical") or "").strip(),
-        "inkonsistensi":          checker.get("inkonsistensi", []) or [],
-        "pertanyaan_klarifikasi": checker.get("pertanyaan_klarifikasi", []) or [],
         "konversi_error":         dwg_error,
     }

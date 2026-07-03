@@ -52,6 +52,11 @@ html, body { background:#0f1420 !important; }
 .bms-out.tech .bms-out-title { color:#c4b5fd; }
 .bms-out.warn { border-color:#7c5e1e; }
 .bms-out.warn .bms-out-title { color:#fcd34d; }
+.bms-out.step .bms-out-title { color:#94a3b8; }
+.bms-steps { margin-top:4px; }
+.bms-steps summary { cursor:pointer; color:#93c5fd; font-size:13px; font-weight:600; padding:10px 0; list-style:revert; }
+.bms-steps[open] summary { margin-bottom:4px; }
+.bms-steps .bms-out { margin-top:12px; }
 .bms-out-body { white-space:pre-wrap; font-size:14px; line-height:1.7; color:#cbd5e1; }
 .bms-copy { float:right; background:#1f2737; border:1px solid #3b4860; color:#cbd5e1; font-size:11px; padding:4px 10px; border-radius:7px; cursor:pointer; }
 .bms-copy:hover { background:#273044; }
@@ -92,24 +97,35 @@ html, body { background:#0f1420 !important; }
     })
     .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
     .then(function (data) {
-      var awam = data.output_awam || "-";
-      var tech = data.output_technical || "-";
-      var inkon = data.inkonsistensi || [];
       if (data.konversi_error) {
         statusEl.innerHTML = '<span style="color:#fca5a5;">⚠️ Konversi DWG gagal: ' + esc(data.konversi_error) + '</span>';
       }
-      var inkonHtml = inkon.length
-        ? '<div class="bms-out warn"><div class="bms-out-title">⚠️ Perlu Diperiksa (Inkonsistensi/Miss)</div><div class="bms-out-body">- ' + inkon.map(esc).join('\n- ') + '</div></div>'
-        : '';
+      function card(title, body, cls, copyKey) {
+        var c = copyKey ? '<button class="bms-copy" data-copy="' + copyKey + '" type="button">Salin</button>' : '';
+        return '<div class="bms-out ' + (cls || '') + '">' + c +
+               '<div class="bms-out-title">' + title + '</div><div class="bms-out-body">' + esc(body || '-') + '</div></div>';
+      }
+      var inkon = data.inkonsistensi || [], tanya = data.pertanyaan_klarifikasi || [];
+      var checkerBody = (data.info_terverifikasi || '-')
+        + (inkon.length ? '\n\n⚠️ Inkonsistensi:\n- ' + inkon.join('\n- ') : '')
+        + (tanya.length ? '\n\n❓ Perlu klarifikasi:\n- ' + tanya.join('\n- ') : '');
+
       resEl.innerHTML =
-        '<div class="bms-out"><button class="bms-copy" data-copy="awam" type="button">Salin</button><div class="bms-out-title">🙂 Output Awam (untuk Sales)</div><div class="bms-out-body">' + esc(awam) + '</div></div>' +
-        '<div class="bms-out tech"><button class="bms-copy" data-copy="tech" type="button">Salin</button><div class="bms-out-title">🔧 Output Teknis (untuk Tim Teknik)</div><div class="bms-out-body">' + esc(tech) + '</div></div>' +
-        inkonHtml;
+        card('🙂 Output Awam (untuk Sales)', data.output_awam, '', 'awam') +
+        card('🔩 Output Teknis (untuk Tim Teknik)', data.output_technical, 'tech', 'tech') +
+        '<details class="bms-steps"><summary>🔍 Lihat proses tiap agent</summary>' +
+          card('🅰️ Agent Reader — Teks', data.reader_teks, 'step') +
+          card('🅱️ Agent Reader — Visual (gambar/CAD)', data.reader_visual, 'step') +
+          card('✅ Agent Checker (konsistensi)', checkerBody, 'warn') +
+          card('📦 Agent Product (fokus Azbil)', data.produk, 'step') +
+          card('🔧 Agent Technical (skematik + jumlah)', data.teknis, 'tech') +
+        '</details>';
+
       if (!data.konversi_error) statusEl.textContent = "";
+      var texts = { awam: data.output_awam || "", tech: data.output_technical || "" };
       resEl.querySelectorAll(".bms-copy").forEach(function (b) {
         b.addEventListener("click", function () {
-          var t = b.getAttribute("data-copy") === "tech" ? tech : awam;
-          navigator.clipboard.writeText(t).then(function () {
+          navigator.clipboard.writeText(texts[b.getAttribute("data-copy")] || "").then(function () {
             b.textContent = "✓ Tersalin"; setTimeout(function () { b.textContent = "Salin"; }, 1500);
           });
         });
