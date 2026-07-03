@@ -175,6 +175,25 @@ def _agent_technical(info, produk):
     return _gen(prompt)
 
 
+# ── Agent: Flow (diagram alur kerja / flowchart Mermaid) ──────────────
+def _agent_flow(teknis):
+    prompt = (
+        "Kamu Agent Flow. Dari deskripsi skematik/teknis di bawah, buat DIAGRAM ALUR (flowchart) sistem BMS "
+        "dalam sintaks MermaidJS.\n"
+        "Aturan:\n"
+        "- Baris pertama WAJIB: flowchart TD  (boleh LR bila lebih pas).\n"
+        "- Node = komponen (sensor, controller, actuator, valve, panel, HMI, dll). Pakai ID pendek + label dalam "
+        "kurung siku, mis. C1[Controller Azbil]. HINDARI tanda kutip, koma, titik dua, kurung bulat, dan karakter "
+        "khusus di dalam label.\n"
+        "- Edge = aliran sinyal/kontrol/komunikasi; beri label protokol bila ada, mis. S1 -->|Modbus| C1.\n"
+        "- Maksimal sekitar 15 node, ringkas & jelas.\n"
+        "- Kembalikan HANYA kode Mermaid (tanpa backtick, tanpa penjelasan).\n\n"
+        "=== SKEMATIK/TEKNIS ===\n" + teknis
+    )
+    out = _gen(prompt)
+    return re.sub(r"```mermaid|```", "", out or "").strip()
+
+
 # ── Agent: Result (2 output: awam & teknis) ───────────────────────────
 def _agent_result(info, inkon, tanya, produk, teknis):
     prompt = (
@@ -225,6 +244,7 @@ def analisa_bms(chat, image_base64="", image_mime="image/png"):
     tanya       = checker.get("pertanyaan_klarifikasi", []) or []
     produk      = _agent_product(info)
     teknis      = _agent_technical(info, produk)
+    flow        = _agent_flow(teknis)
     hasil       = _agent_result(info, inkon, tanya, produk, teknis)
 
     return {
@@ -235,6 +255,7 @@ def analisa_bms(chat, image_base64="", image_mime="image/png"):
         "pertanyaan_klarifikasi": tanya,
         "produk":                 produk,
         "teknis":                 teknis,
+        "flow_mermaid":           flow,
         "output_awam":            (hasil.get("output_awam") or "").strip(),
         "output_technical":       (hasil.get("output_technical") or "").strip(),
         "konversi_error":         dwg_error,

@@ -2,6 +2,7 @@
      BMS SALES ASSISTANT — halaman tool (tempel ke Elementor: widget HTML)
      Halaman terpisah, diakses dari kartu di dashboard AI agent.
      ============================================================ -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
 <div id="bms">
   <div class="bms-head">
     <h2 class="bms-title">🏢 BMS Sales Assistant</h2>
@@ -53,6 +54,9 @@ html, body { background:#0f1420 !important; }
 .bms-out.warn { border-color:#7c5e1e; }
 .bms-out.warn .bms-out-title { color:#fcd34d; }
 .bms-out.step .bms-out-title { color:#94a3b8; }
+.bms-out.flow .bms-out-title { color:#5eead4; }
+.flow-box { background:#0f1420; border:1px solid #273044; border-radius:10px; padding:14px; overflow-x:auto; text-align:center; }
+.flow-box svg { max-width:100%; height:auto; }
 .bms-steps { margin-top:4px; }
 .bms-steps summary { cursor:pointer; color:#93c5fd; font-size:13px; font-weight:600; padding:10px 0; list-style:revert; }
 .bms-steps[open] summary { margin-bottom:4px; }
@@ -68,6 +72,23 @@ html, body { background:#0f1420 !important; }
   var imgB64 = "", imgMime = "";
 
   function esc(s) { return (s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+  var _flowN = 0;
+  function renderFlow(code) {
+    var box = document.getElementById("flow-box");
+    if (!box) return;
+    if (typeof mermaid === "undefined") { setTimeout(function () { renderFlow(code); }, 500); return; }
+    try {
+      mermaid.initialize({ startOnLoad: false, theme: "dark", securityLevel: "loose" });
+      mermaid.render("flowsvg_" + (++_flowN), code).then(function (r) {
+        box.innerHTML = r.svg;
+      }).catch(function () {
+        box.innerHTML = '<pre style="white-space:pre-wrap;margin:0;">' + esc(code) + '</pre>';
+      });
+    } catch (e) {
+      box.innerHTML = '<pre style="white-space:pre-wrap;margin:0;">' + esc(code) + '</pre>';
+    }
+  }
 
   document.getElementById("bms-image").addEventListener("change", function (e) {
     var f = e.target.files[0];
@@ -113,6 +134,7 @@ html, body { background:#0f1420 !important; }
       resEl.innerHTML =
         card('🙂 Output Awam (untuk Sales)', data.output_awam, '', 'awam') +
         card('🔩 Output Teknis (untuk Tim Teknik)', data.output_technical, 'tech', 'tech') +
+        '<div class="bms-out flow"><div class="bms-out-title">🗺️ Skematik Alur Kerja</div><div id="flow-box" class="flow-box">⏳ Merender diagram...</div></div>' +
         '<details class="bms-steps"><summary>🔍 Lihat proses tiap agent</summary>' +
           card('🅰️ Agent Reader — Teks', data.reader_teks, 'step') +
           card('🅱️ Agent Reader — Visual (gambar/CAD)', data.reader_visual, 'step') +
@@ -130,6 +152,9 @@ html, body { background:#0f1420 !important; }
           });
         });
       });
+
+      if (data.flow_mermaid) renderFlow(data.flow_mermaid);
+      else { var fb = document.querySelector(".bms-out.flow"); if (fb) fb.style.display = "none"; }
     })
     .catch(function (err) { statusEl.textContent = "❌ Gagal: " + err.message; })
     .finally(function () { btn.disabled = false; btn.textContent = "✨ Analisa Permintaan"; });
