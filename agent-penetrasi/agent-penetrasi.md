@@ -42,6 +42,10 @@ Wajib: `nama_produk`, `deskripsi`. Sisanya opsional.
 
 **📈 Analytics** (feedback loop ke Orchestrator) — cek keselarasan antar-agent, KPI, rencana 30/60/90 hari, rekomendasi iterasi, ringkasan eksekutif.
 
+**✅ Action Plan** — simpulkan jadi daftar tindakan konkret: apa, di mana (channel), berapa (jumlah/frekuensi), prioritas, catatan (dirender jadi tabel).
+
+**🗓️ Timeline Planner** — susun rencana waktu ± 90 hari berbentuk fase berurutan (periode + fokus + aktivitas), dirender jadi timeline visual.
+
 ## Output (JSON)
 ```json
 { "orchestrator","market_research","competitor_analysis","customer_insight",
@@ -49,7 +53,9 @@ Wajib: `nama_produk`, `deskripsi`. Sisanya opsional.
   "seo_keyword","content","social_ads","lead_gen",
   "analytics": { "selaras", "catatan_inkonsistensi":[], "kpi":[],
                  "rencana_30_60_90", "rekomendasi_iterasi":[] },
-  "ringkasan_eksekutif" }
+  "ringkasan_eksekutif",
+  "action_plan": { "ringkas", "aksi":[{"tindakan","dimana","jumlah","prioritas","catatan"}] },
+  "timeline": [ {"periode","fokus","aktivitas":[...]} ] }
 ```
 
 ## Frontend (`penetrasi.html`)

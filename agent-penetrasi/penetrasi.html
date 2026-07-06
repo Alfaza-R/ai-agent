@@ -116,6 +116,31 @@ html, body { background:#0f1420 !important; }
 .pen-badge { display:inline-block; font-size:11px; font-weight:700; padding:2px 9px; border-radius:20px; margin-left:8px; vertical-align:middle; }
 .pen-badge.ok { background:#14532d; color:#86efac; }
 .pen-badge.warn { background:#5c3a12; color:#fcd34d; }
+
+/* Action Plan */
+.pen-out.action { border-color:#1e5a4a; background:#0f1f1b; }
+.pen-out.action .pen-out-title { color:#5eead4; }
+.pen-actbl { width:100%; border-collapse:collapse; font-size:13px; margin-top:6px; }
+.pen-actbl th, .pen-actbl td { border:1px solid #2a3344; padding:8px 10px; text-align:left; vertical-align:top; }
+.pen-actbl th { background:#12261f; color:#a7f3d0; font-weight:700; font-size:12px; text-transform:uppercase; letter-spacing:.3px; }
+.pen-actbl td.pen-c { text-align:center; white-space:nowrap; }
+.pen-prio { display:inline-block; font-size:11px; font-weight:700; padding:2px 9px; border-radius:20px; }
+.pen-prio.t { background:#7f1d1d; color:#fecaca; }
+.pen-prio.s { background:#5c3a12; color:#fcd34d; }
+.pen-prio.r { background:#1e3a5c; color:#bfdbfe; }
+
+/* Timeline */
+.pen-out.timeline { border-color:#5b4a8a; background:#161326; }
+.pen-out.timeline .pen-out-title { color:#c4b5fd; }
+.pen-tl { position:relative; margin:6px 0 0; padding-left:26px; }
+.pen-tl::before { content:""; position:absolute; left:7px; top:6px; bottom:6px; width:2px; background:#3b3560; }
+.pen-tl-item { position:relative; padding-bottom:18px; }
+.pen-tl-item:last-child { padding-bottom:0; }
+.pen-tl-item::before { content:""; position:absolute; left:-24px; top:3px; width:14px; height:14px; border-radius:50%; background:#8b5cf6; border:3px solid #161326; box-shadow:0 0 0 1px #8b5cf6; }
+.pen-tl-per { font-size:12px; font-weight:800; color:#8b5cf6; text-transform:uppercase; letter-spacing:.4px; }
+.pen-tl-fokus { font-size:14.5px; font-weight:700; color:#e2e8f0; margin:2px 0 6px; }
+.pen-tl-item ul { margin:0; padding-left:18px; }
+.pen-tl-item li { color:#cbd5e1; font-size:13px; line-height:1.6; margin-bottom:2px; }
 </style>
 
 <script>
@@ -252,6 +277,38 @@ html, body { background:#0f1420 !important; }
       }
       function phase(t) { return '<div class="pen-phase">' + t + '</div>'; }
 
+      function actionCard(ap) {
+        ap = ap || {}; var rows = ap.aksi || [];
+        if (!rows.length && !ap.ringkas) return "";
+        var body = ap.ringkas ? '<div class="pen-out-body" style="margin-bottom:12px;">' + md(ap.ringkas) + '</div>' : '';
+        if (rows.length) {
+          body += '<table class="pen-actbl"><thead><tr><th>Tindakan</th><th>Di mana</th><th>Berapa</th><th>Prioritas</th><th>Catatan</th></tr></thead><tbody>'
+            + rows.map(function (r) {
+                var p = (r.prioritas || "").toLowerCase();
+                var cls = p.indexOf("tinggi") === 0 ? "t" : (p.indexOf("sedang") === 0 ? "s" : "r");
+                var pr = r.prioritas ? '<span class="pen-prio ' + cls + '">' + esc(r.prioritas) + '</span>' : '-';
+                return '<tr><td>' + esc(r.tindakan || '-') + '</td><td>' + esc(r.dimana || '-')
+                  + '</td><td>' + esc(r.jumlah || '-') + '</td><td class="pen-c">' + pr
+                  + '</td><td>' + esc(r.catatan || '-') + '</td></tr>';
+              }).join("")
+            + '</tbody></table>';
+        }
+        return '<div class="pen-out action"><button class="pen-copy" type="button">Salin</button>'
+          + '<div class="pen-out-title">✅ Action Plan — Tindakan yang Harus Dilakukan</div>' + body + '</div>';
+      }
+
+      function timelineCard(tl) {
+        if (!tl || !tl.length) return "";
+        var items = tl.map(function (f) {
+          var akt = (f.aktivitas || []).map(function (a) { return '<li>' + esc(a) + '</li>'; }).join("");
+          return '<div class="pen-tl-item"><div class="pen-tl-per">' + esc(f.periode || '-') + '</div>'
+            + (f.fokus ? '<div class="pen-tl-fokus">' + esc(f.fokus) + '</div>' : '')
+            + (akt ? '<ul>' + akt + '</ul>' : '') + '</div>';
+        }).join("");
+        return '<div class="pen-out timeline"><div class="pen-out-title">🗓️ Timeline Eksekusi (± 90 hari)</div>'
+          + '<div class="pen-tl">' + items + '</div></div>';
+      }
+
       var a = data.analytics || {};
       var selaras = a.selaras !== false;
       var badge = selaras
@@ -266,6 +323,10 @@ html, body { background:#0f1420 !important; }
 
       resEl.innerHTML =
         card('🎯 Ringkasan Eksekutif' + badge, data.ringkasan_eksekutif, 'exec', true) +
+
+        phase('🚦 Kesimpulan & Rencana') +
+        actionCard(data.action_plan) +
+        timelineCard(data.timeline) +
 
         phase('🧭 Orchestrator') +
         card('🧭 Orchestrator — Objektif & Arahan', data.orchestrator, '', true) +
@@ -292,8 +353,8 @@ html, body { background:#0f1420 !important; }
       statusEl.textContent = "";
       resEl.querySelectorAll(".pen-copy").forEach(function (b) {
         b.addEventListener("click", function () {
-          var body = b.parentElement.querySelector(".pen-out-body");
-          var t = body ? (body.innerText || body.textContent || "") : "";
+          var body = b.parentElement.querySelector(".pen-out-body") || b.parentElement;
+          var t = (body.innerText || body.textContent || "").replace(/^Salin\s*/, "");
           navigator.clipboard.writeText(t).then(function () {
             b.textContent = "✓ Tersalin"; setTimeout(function () { b.textContent = "Salin"; }, 1500);
           });

@@ -302,6 +302,62 @@ def _analytics(brief, semua):
     })
 
 
+# ── ACTION PLAN (kesimpulan tindakan konkret) ─────────────────────────
+def _action_plan(brief, semua):
+    prompt = (
+        "Kamu Action Plan Agent. Dari SELURUH hasil strategi di bawah, simpulkan menjadi DAFTAR TINDAKAN KONKRET "
+        "yang harus dilakukan pemilik bisnis. Harus spesifik & bisa langsung dieksekusi.\n"
+        "Untuk tiap tindakan jawab: APA yang dilakukan, DI MANA (channel/platform/tempat), BERAPA (jumlah/frekuensi, "
+        "mis. '4 konten/minggu di Instagram'), PRIORITAS (Tinggi/Sedang/Rendah), dan catatan singkat bila perlu.\n"
+        "Urutkan dari prioritas tertinggi. Realistis sesuai skala bisnis & budget di brief.\n\n"
+        "Kembalikan HANYA JSON valid (tanpa backtick):\n"
+        "{ \"ringkas\": \"1-2 kalimat arahan utama\", "
+        "\"aksi\": [ {\"tindakan\":\"...\", \"dimana\":\"...\", \"jumlah\":\"...\", \"prioritas\":\"Tinggi/Sedang/Rendah\", \"catatan\":\"...\"} ] }\n\n"
+        "=== BRIEF ===\n" + brief + "\n\n=== SEMUA HASIL STRATEGI ===\n" + semua
+    )
+    hasil = _json(_gen(prompt), {"ringkas": "", "aksi": []})
+    aksi = []
+    for a in (hasil.get("aksi") or []):
+        if isinstance(a, dict) and (a.get("tindakan") or a.get("dimana")):
+            aksi.append({
+                "tindakan":  str(a.get("tindakan", "")).strip(),
+                "dimana":    str(a.get("dimana", "")).strip(),
+                "jumlah":    str(a.get("jumlah", "")).strip(),
+                "prioritas": str(a.get("prioritas", "")).strip(),
+                "catatan":   str(a.get("catatan", "")).strip(),
+            })
+    return {"ringkas": (hasil.get("ringkas") or "").strip(), "aksi": aksi}
+
+
+# ── TIMELINE PLANNER (rencana waktu berbentuk timeline) ───────────────
+def _timeline(brief, semua, action):
+    prompt = (
+        "Kamu Timeline Planner Agent. Susun RENCANA WAKTU (timeline) eksekusi penetrasi pasar berdasarkan strategi & "
+        "daftar tindakan di bawah. Bagi menjadi beberapa fase berurutan (mis. Minggu 1-2, Minggu 3-4, Bulan 2, Bulan 3, "
+        "dst) sepanjang kira-kira 90 hari.\n"
+        "Tiap fase: periode, fokus/judul fase, dan daftar aktivitas konkret pada fase itu. Aktivitas harus selaras "
+        "dengan action plan. Realistis, jangan menumpuk semua di satu fase.\n\n"
+        "Kembalikan HANYA JSON valid (tanpa backtick):\n"
+        "{ \"timeline\": [ {\"periode\":\"mis. Minggu 1-2\", \"fokus\":\"judul fase\", \"aktivitas\":[\"...\",\"...\"]} ] }\n\n"
+        "=== BRIEF ===\n" + brief +
+        "\n\n=== ACTION PLAN ===\n" + json.dumps(action, ensure_ascii=False) +
+        "\n\n=== SEMUA HASIL STRATEGI ===\n" + semua
+    )
+    hasil = _json(_gen(prompt), {"timeline": []})
+    fases = []
+    for f in (hasil.get("timeline") or []):
+        if isinstance(f, dict) and (f.get("periode") or f.get("fokus")):
+            akt = f.get("aktivitas") or []
+            if isinstance(akt, str):
+                akt = [akt]
+            fases.append({
+                "periode":   str(f.get("periode", "")).strip(),
+                "fokus":     str(f.get("fokus", "")).strip(),
+                "aktivitas": [str(x).strip() for x in akt if str(x).strip()],
+            })
+    return fases
+
+
 # ── PIPELINE UTAMA ────────────────────────────────────────────────────
 def analisa_penetrasi(nama_produk="", deskripsi="", target_market="",
                       lokasi="", kompetitor="", budget="", tujuan=""):
@@ -353,6 +409,12 @@ def analisa_penetrasi(nama_produk="", deskripsi="", target_market="",
     )
     analytics = _analytics(brief, semua)
 
+    # 5) ACTION PLAN + TIMELINE (kesimpulan tindakan + rencana waktu)
+    semua_plus = semua + "\n\n[ANALYTICS RINGKAS]\n" + (analytics.get("ringkasan_eksekutif") or "") + \
+        "\n" + (analytics.get("rencana_30_60_90") or "")
+    action   = _action_plan(brief, semua_plus)
+    timeline = _timeline(brief, semua_plus, action)
+
     return {
         "orchestrator":        arahan,
         "market_research":     market,
@@ -373,4 +435,6 @@ def analisa_penetrasi(nama_produk="", deskripsi="", target_market="",
             "rekomendasi_iterasi":  analytics.get("rekomendasi_iterasi", []) or [],
         },
         "ringkasan_eksekutif": (analytics.get("ringkasan_eksekutif") or "").strip(),
+        "action_plan":         action,
+        "timeline":            timeline,
     }
