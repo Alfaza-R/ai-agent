@@ -53,6 +53,7 @@ html, body { background: #0f1420 !important; }
   var LINK_API_DOCS         = BACKEND_URL + "/docs";
   var LINK_BMS              = "https://eknowledge.taharica.com/ai-agent-bms/";
   var LINK_PENETRASI        = "https://eknowledge.taharica.com/agent-penetrasi/";
+  var LINK_KONTEN_IG        = "GANTI_DENGAN_URL_HALAMAN_KONTEN_IG"; // mis. https://eknowledge.taharica.com/konten-ig/
 
   // ===== Daftar agent =====
   var AGENTS = [
@@ -90,6 +91,13 @@ html, body { background: #0f1420 !important; }
       desc:"Isi profil bisnis, 11 AI agent (riset pasar, kompetitor, persona → positioning, pricing, channel → content, SEO, ads, lead gen → analitik) menyusun strategi penetrasi pasar lengkap + rencana 30/60/90 hari.",
       live:true,
       btn:{ text:"Buka Market Strategist", url:LINK_PENETRASI },
+    },
+    {
+      icon:"🎨", bg:"rgba(236,72,153,.16)",
+      nama:"Konten Instagram Generator",
+      desc:"Tulis brief → 4 agent (detailing, layouting, checker, checker visual) menyusun 1-5 slide konten IG format 4:5 siap-unduh. Aset & referensi diambil dari folder GitHub-mu.",
+      live:true,
+      btn:{ text:"Buka Konten Generator", url:LINK_KONTEN_IG },
     },
   ];
 

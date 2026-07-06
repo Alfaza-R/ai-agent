@@ -1,0 +1,201 @@
+<!-- ============================================================
+     KONTEN INSTAGRAM 4:5 — multi-agent (tempel ke Elementor: widget HTML)
+     Render slide 1080x1350 lalu export PNG (html2canvas).
+     Aset & referensi diambil dari folder GitHub (lihat CARA-UPLOAD-GAMBAR.md).
+     ============================================================ -->
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<div id="kig">
+  <div class="kig-head">
+    <h2 class="kig-title">🎨 Konten Instagram Generator (4:5)</h2>
+    <p class="kig-sub">Tulis brief kontennya. Agent Detailing → Layouting → Checker → Checker Visual akan menyusun 1–5 slide siap-unduh. Aset & referensi diambil dari folder GitHub.</p>
+  </div>
+
+  <div class="kig-panel">
+    <label class="kig-label">Brief Konten</label>
+    <textarea id="kig-brief" placeholder="Contoh: Konten edukasi 4 slide tentang cara kalibrasi timbangan lab. Audiens: laboran. Nada: informatif & ramah. Ada CTA hubungi kami di slide terakhir."></textarea>
+    <div class="kig-row">
+      <label class="kig-label" style="margin:0;">Jumlah slide</label>
+      <select id="kig-jumlah">
+        <option value="0">Otomatis (agent yang tentukan)</option>
+        <option value="1">1</option><option value="2">2</option><option value="3">3</option>
+        <option value="4">4</option><option value="5">5</option>
+      </select>
+    </div>
+    <button id="kig-submit" class="kig-btn" type="button">✨ Buat Konten</button>
+    <div id="kig-status" class="kig-status"></div>
+  </div>
+
+  <div id="kig-slides" class="kig-slides"></div>
+  <div id="kig-extra"></div>
+</div>
+
+<style>
+html, body { background:#0f1420 !important; }
+#kig { font-family:'Poppins', system-ui, sans-serif; max-width:920px; margin:0 auto; color:#e5e7eb; padding:28px 20px; }
+#kig * { box-sizing:border-box; }
+.kig-head { margin-bottom:20px; }
+.kig-title { font-size:26px; font-weight:800; margin:0; color:#f8fafc; }
+.kig-sub { margin:6px 0 0; color:#94a3b8; font-size:14px; line-height:1.6; }
+.kig-panel { background:#161c2a; border:1px solid #273044; border-radius:16px; padding:22px; }
+.kig-label { display:block; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:#94a3b8; margin-bottom:8px; }
+#kig-brief { width:100%; min-height:130px; background:#0f1420; border:1px solid #2a3344; border-radius:10px; color:#e5e7eb; padding:13px; font-family:inherit; font-size:14px; line-height:1.6; resize:vertical; }
+#kig-brief:focus { outline:none; border-color:#ec4899; }
+.kig-row { display:flex; align-items:center; gap:12px; margin:14px 0; }
+#kig-jumlah { background:#0f1420; border:1px solid #2a3344; border-radius:10px; color:#e5e7eb; padding:9px 12px; font-family:inherit; font-size:14px; }
+.kig-btn { width:100%; background:#ec4899; color:#fff; border:none; font-family:inherit; font-weight:700; font-size:15px; padding:13px 16px; border-radius:10px; cursor:pointer; transition:background .15s; }
+.kig-btn:hover { background:#db2777; }
+.kig-btn:disabled { opacity:.6; cursor:default; }
+.kig-status { font-size:13px; color:#fcd34d; margin-top:12px; text-align:center; line-height:1.6; }
+.kig-info { font-size:12.5px; color:#94a3b8; background:#0f1420; border:1px solid #273044; border-radius:10px; padding:10px 14px; margin:16px 0; line-height:1.6; }
+.kig-info b { color:#cbd5e1; }
+.kig-slides { margin-top:18px; display:grid; grid-template-columns:repeat(auto-fill,minmax(270px,1fr)); gap:18px; }
+.kig-card { background:#161c2a; border:1px solid #273044; border-radius:14px; padding:14px; display:flex; flex-direction:column; align-items:center; gap:10px; }
+.kig-thumb { width:259px; height:324px; overflow:hidden; border-radius:8px; border:1px solid #2a3344; position:relative; }
+
+/* SLIDE ASLI 1080x1350 (di-scale untuk preview) */
+.kig-slide { width:1080px; height:1350px; position:relative; overflow:hidden; transform:scale(.24); transform-origin:top left; display:flex; flex-direction:column; }
+.kig-bg { position:absolute; inset:0; z-index:0; }
+.kig-bg img { width:100%; height:100%; object-fit:cover; display:block; }
+.kig-overlay { position:absolute; inset:0; z-index:1; background:linear-gradient(180deg, rgba(0,0,0,.15), rgba(0,0,0,.55)); }
+.kig-zone { position:relative; z-index:2; flex:1; display:flex; flex-direction:column; padding:0 90px; }
+.kig-zone.top { justify-content:flex-start; padding-top:100px; }
+.kig-zone.mid { justify-content:center; }
+.kig-zone.bot { justify-content:flex-end; padding-bottom:110px; }
+.kig-tempel { position:relative; z-index:2; align-self:center; max-width:70%; max-height:40%; margin:auto 0; object-fit:contain; }
+.kig-tx { margin:0 0 24px; line-height:1.18; font-family:'Poppins', system-ui, sans-serif; }
+.kig-tx.headline { font-weight:800; }
+.kig-tx.sub { font-weight:600; }
+.kig-tx.body { font-weight:500; }
+.kig-tx.cta { font-weight:700; display:inline-block; padding:18px 34px; border-radius:60px; background:#ec4899; align-self:flex-start; }
+.kig-sz-besar { font-size:76px; }
+.kig-sz-sedang { font-size:46px; }
+.kig-sz-kecil { font-size:30px; }
+
+.kig-cap { font-size:12px; color:#94a3b8; text-align:center; }
+.kig-dl { background:#ec4899; color:#fff; border:none; font-family:inherit; font-weight:600; font-size:13px; padding:9px 16px; border-radius:9px; cursor:pointer; }
+.kig-dl:hover { background:#db2777; }
+.kig-dlall { display:block; width:100%; margin:16px 0 0; background:#8b5cf6; color:#fff; border:none; font-family:inherit; font-weight:700; font-size:14px; padding:12px; border-radius:10px; cursor:pointer; }
+.kig-dlall:hover { background:#7c3aed; }
+.kig-steps { margin-top:16px; }
+.kig-steps summary { cursor:pointer; color:#f9a8d4; font-size:13px; font-weight:600; padding:10px 0; }
+.kig-step { background:#161c2a; border:1px solid #273044; border-radius:12px; padding:14px 16px; margin-top:10px; }
+.kig-step h4 { margin:0 0 6px; font-size:13px; color:#f9a8d4; }
+.kig-step pre { margin:0; white-space:pre-wrap; word-break:break-word; font-size:12px; color:#cbd5e1; font-family:ui-monospace,monospace; line-height:1.5; }
+</style>
+
+<script>
+(function () {
+  var BACKEND_URL = "https://arapaza-ai-agent.hf.space";
+  function esc(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+  function zoneOf(p){ p=(p||"tengah").toLowerCase(); return p.indexOf("atas")===0?"top":(p.indexOf("bawah")===0?"bot":"mid"); }
+  function szClass(u){ u=(u||"sedang").toLowerCase(); return u.indexOf("besar")===0?"kig-sz-besar":(u.indexOf("kecil")===0?"kig-sz-kecil":"kig-sz-sedang"); }
+  function alignOf(a){ a=(a||"kiri").toLowerCase(); return a.indexOf("tengah")===0?"center":(a.indexOf("kanan")===0?"right":"left"); }
+
+  function bgStyle(s){
+    if (s.bg_tipe==="warna") return "background:"+(s.bg_warna||"#111827")+";";
+    if (s.bg_tipe==="gradient"){ var g=s.bg_gradient||[]; return "background:linear-gradient(160deg,"+(g[0]||"#6d28d9")+","+(g[1]||"#2563eb")+");"; }
+    return "background:#111827;";
+  }
+  function bgImgSrc(s){
+    if (s.bg_tipe==="aset" && s.bg_aset_url) return s.bg_aset_url;
+    if (s.bg_generate_b64) return "data:image/png;base64,"+s.bg_generate_b64;
+    return "";
+  }
+
+  function slideHTML(s, i){
+    var zones = { top:[], mid:[], bot:[] };
+    (s.teks||[]).forEach(function(t){
+      var cls = (t.peran||"body").toLowerCase();
+      zones[zoneOf(t.posisi)].push('<div class="kig-tx '+cls+' '+szClass(t.ukuran)+'" style="color:'+(t.warna||"#ffffff")+';text-align:'+alignOf(t.align)+';">'+esc(t.isi)+'</div>');
+    });
+    var src = bgImgSrc(s);
+    var bg = src ? '<div class="kig-bg"><img crossorigin="anonymous" src="'+src+'"></div>'
+                 : '<div class="kig-bg" style="'+bgStyle(s)+'"></div>';
+    var ov = s.overlay ? '<div class="kig-overlay"></div>' : '';
+    var tempel = s.aset_tempel_url ? '<img class="kig-tempel" crossorigin="anonymous" src="'+s.aset_tempel_url+'">' : '';
+    return '<div class="kig-slide" id="slide-'+i+'">'+bg+ov
+      + '<div class="kig-zone top">'+zones.top.join("")+'</div>'
+      + tempel
+      + '<div class="kig-zone mid">'+zones.mid.join("")+'</div>'
+      + '<div class="kig-zone bot">'+zones.bot.join("")+'</div>'
+      + '</div>';
+  }
+
+  function capture(el){
+    return new Promise(function(resolve,reject){
+      var clone = el.cloneNode(true);
+      clone.style.transform="none";
+      clone.style.position="fixed"; clone.style.left="-99999px"; clone.style.top="0";
+      document.body.appendChild(clone);
+      html2canvas(clone,{useCORS:true, allowTaint:false, backgroundColor:null, scale:1, width:1080, height:1350})
+        .then(function(c){ document.body.removeChild(clone); resolve(c); })
+        .catch(function(e){ try{document.body.removeChild(clone);}catch(_){} reject(e); });
+    });
+  }
+  function download(canvas, name){
+    canvas.toBlob(function(b){
+      var a=document.createElement("a"); a.href=URL.createObjectURL(b); a.download=name; a.click();
+      setTimeout(function(){ URL.revokeObjectURL(a.href); },2000);
+    },"image/png");
+  }
+
+  document.getElementById("kig-submit").addEventListener("click", function(){
+    var brief=document.getElementById("kig-brief").value.trim();
+    if(!brief){ alert("Tulis brief kontennya dulu."); return; }
+    var jumlah=parseInt(document.getElementById("kig-jumlah").value,10)||0;
+    var btn=document.getElementById("kig-submit"), st=document.getElementById("kig-status");
+    var slidesEl=document.getElementById("kig-slides"), extraEl=document.getElementById("kig-extra");
+    btn.disabled=true; btn.textContent="⏳ Membuat konten...";
+    st.textContent="Agent bekerja (detailing → layouting → checker → checker visual)... ± 1-2 menit.";
+    slidesEl.innerHTML=""; extraEl.innerHTML="";
+
+    fetch(BACKEND_URL+"/konten-ig",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({brief:brief,jumlah:jumlah})})
+    .then(function(r){ if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); })
+    .then(function(data){
+      st.textContent="";
+      var slides=data.slides||[];
+      var info='<div class="kig-info">📦 Aset ditemukan: <b>'+data.jumlah_aset+'</b> · 🎨 Referensi: <b>'+data.jumlah_referensi
+        +'</b> · 🖼️ Generative AI: <b>'+(data.generative_aktif?"aktif":"nonaktif (template only)")+'</b>'
+        +(data.jumlah_aset===0?'<br>⚠️ Belum ada aset di folder GitHub — slide pakai warna/gradient. Lihat CARA-UPLOAD-GAMBAR.md.':'')
+        +'</div>';
+      if(!slides.length){ extraEl.innerHTML=info+'<div class="kig-info">Tidak ada slide dihasilkan. Coba perjelas brief.</div>'; return; }
+
+      slidesEl.insertAdjacentHTML("beforebegin", info);
+      slidesEl.innerHTML = slides.map(function(s,i){
+        return '<div class="kig-card"><div class="kig-thumb">'+slideHTML(s,i)+'</div>'
+          + '<div class="kig-cap">Slide '+(i+1)+' / '+slides.length+'</div>'
+          + '<button class="kig-dl" data-i="'+i+'" type="button">⬇️ Unduh PNG</button></div>';
+      }).join("");
+
+      slidesEl.querySelectorAll(".kig-dl").forEach(function(b){
+        b.addEventListener("click", function(){
+          var i=b.getAttribute("data-i"); b.textContent="⏳...";
+          capture(document.getElementById("slide-"+i)).then(function(c){ download(c,"konten-slide-"+(parseInt(i)+1)+".png"); b.textContent="⬇️ Unduh PNG"; })
+            .catch(function(){ b.textContent="❌ gagal"; });
+        });
+      });
+
+      // Tombol unduh semua + proses agent
+      var steps='<details class="kig-steps"><summary>🔍 Lihat proses tiap agent</summary>'
+        + '<div class="kig-step"><h4>🅰️ Detailing</h4><pre>'+esc(JSON.stringify(data.detailing,null,2))+'</pre></div>'
+        + '<div class="kig-step"><h4>🅱️ Layouting</h4><pre>'+esc(JSON.stringify(data.layout,null,2))+'</pre></div>'
+        + '<div class="kig-step"><h4>✅ Checker (koordinator)</h4><pre>'+esc(JSON.stringify(data.checker,null,2))+'</pre></div>'
+        + '<div class="kig-step"><h4>👁️ Checker Visual</h4><pre>'+esc(JSON.stringify(data.checker_visual,null,2))+'</pre></div>'
+        + '</details>';
+      extraEl.innerHTML = '<button class="kig-dlall" id="kig-dlall" type="button">⬇️ Unduh Semua ('+slides.length+' gambar)</button>'+steps;
+
+      document.getElementById("kig-dlall").addEventListener("click", function(){
+        var btnAll=this; btnAll.disabled=true; btnAll.textContent="⏳ Mengunduh...";
+        var i=0;
+        (function next(){
+          if(i>=slides.length){ btnAll.disabled=false; btnAll.textContent="⬇️ Unduh Semua ("+slides.length+" gambar)"; return; }
+          capture(document.getElementById("slide-"+i)).then(function(c){ download(c,"konten-slide-"+(i+1)+".png"); i++; setTimeout(next,700); })
+            .catch(function(){ i++; next(); });
+        })();
+      });
+    })
+    .catch(function(err){ st.textContent="❌ Gagal: "+err.message; })
+    .finally(function(){ btn.disabled=false; btn.textContent="✨ Buat Konten"; });
+  });
+})();
+</script>

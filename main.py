@@ -5,6 +5,7 @@ from mesin_agent import buat_brief   # ambil mesin agent yang tadi kita bikin
 from mesin_seo import cek_seo        # mesin cek SEO/readability ala Yoast
 from mesin_bms import analisa_bms    # asisten sales Building Management System
 from mesin_penetrasi import analisa_penetrasi, rekomendasi_target  # sistem multi-agent penetrasi pasar
+from mesin_konten_ig import buat_konten_ig  # multi-agent konten Instagram 4:5
 
 # Bikin aplikasi backend-nya
 app = FastAPI()
@@ -106,3 +107,12 @@ def endpoint_penetrasi(pesanan: PesananPenetrasi):
         pesanan.budget,
         pesanan.tujuan,
     )
+
+# Pesanan konten Instagram 4:5 (multi-agent: detailing/layouting/checker/checker-visual)
+class PesananKontenIG(BaseModel):
+    brief: str = ""
+    jumlah: int = 0                # 0 = agent tentukan sendiri (1-5)
+
+@app.post("/konten-ig")
+def endpoint_konten_ig(pesanan: PesananKontenIG):
+    return buat_konten_ig(pesanan.brief, pesanan.jumlah)

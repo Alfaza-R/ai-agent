@@ -1,0 +1,40 @@
+# Agent: Konten Instagram Generator (4:5, multi-agent)
+
+Dari brief → susun 1–5 slide konten Instagram format **4:5** (1080×1350) siap-unduh. Aset & referensi diambil dari folder GitHub.
+
+## File
+- Backend: `mesin_konten_ig.py` — fungsi `buat_konten_ig(brief, jumlah)`.
+- Endpoint: `POST /konten-ig` di `main.py`.
+- Frontend: `agent-konten-ig/konten-ig.html` (render slide + export PNG via html2canvas).
+- Aset: folder `agent-konten-ig/aset/` · Referensi: `agent-konten-ig/referensi/` (lihat `CARA-UPLOAD-GAMBAR.md`).
+
+## Input (JSON)
+```json
+{ "brief": "...deskripsi konten...", "jumlah": 0 }
+```
+`jumlah` 0 = agent tentukan sendiri (1–5).
+
+## Pipeline
+1. **🅰️ Detailing** (`_agent_detailing`) — dari brief → arahan detail per slide (headline, subteks, poin, cta, mood, warna, arahan visual).
+2. **🅱️ Layouting** (`_agent_layouting`) — susun layout tiap slide; **hanya** pakai aset dari folder GitHub (pilih by nama file), atau bg warna/gradient/generate.
+3. **✅ Checker — KOORDINATOR** (`_agent_checker`) — cek brief↔detailing↔layouting konsisten; bila tidak → kirim koreksi ke agent terkait (loop maks 2x).
+4. **👁️ Checker Visual** (`_agent_checker_visual`) — bandingkan rencana layout dengan gambar **referensi** (Gemini vision); bila belum sejalan → revisi layout 1x.
+
+## Output (JSON)
+```json
+{ "detailing":{...}, "layout":{...}, "checker":{...}, "checker_visual":{...},
+  "slides":[ { "bg_tipe","bg_warna","bg_gradient","bg_aset_url","aset_tempel_url",
+               "overlay","bg_generate_b64","teks":[{isi,peran,posisi,align,warna,ukuran}] } ],
+  "jumlah_aset","jumlah_referensi","generative_aktif" }
+```
+Render 4:5 final dilakukan **di browser** (html2canvas) → unduh PNG per slide / semua.
+
+## Sumber gambar (GitHub)
+- Backend baca folder repo via GitHub API (repo public, tanpa token): `KONTEN_GH_REPO` (default `Alfaza-R/ai-agent`), `KONTEN_GH_BRANCH` (`main`).
+- Tambah gambar = upload ke folder (web GitHub / git push). Tidak perlu re-deploy.
+
+## Generative (opsional, berbayar)
+- Background bertipe `generate` dibuat via model image Gemini **hanya bila** Secret `GEMINI_IMAGE_MODEL` diisi (mis. model image berbayar). Kalau kosong → fallback gradient. Jadi template tetap jalan gratis.
+
+## Model
+Gemini `gemini-3.1-flash-lite` (text + vision). Image gen opsional via `GEMINI_IMAGE_MODEL`.
