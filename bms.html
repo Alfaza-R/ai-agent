@@ -138,9 +138,9 @@ html, body { background:#0f1420 !important; }
         '<details class="bms-steps"><summary>🔍 Lihat proses tiap agent</summary>' +
           card('🅰️ Agent Reader — Teks', data.reader_teks, 'step') +
           card('🅱️ Agent Reader — Visual (gambar/CAD)', data.reader_visual, 'step') +
-          card('✅ Agent Checker (konsistensi)', checkerBody, 'warn') +
           card('📦 Agent Product (fokus Azbil)', data.produk, 'step') +
           card('🔧 Agent Technical (skematik + jumlah)', data.teknis, 'tech') +
+          card('✅ Agent Checker — Koordinator (cek semua & selaraskan)', checkerBody, 'warn') +
         '</details>';
 
       if (!data.konversi_error) statusEl.textContent = "";

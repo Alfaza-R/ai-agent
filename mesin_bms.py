@@ -113,20 +113,31 @@ def _agent_reader_visual(file_bytes, mime):
     return _gen(prompt, file_bytes, mime)
 
 
-# ── Agent 3: Checker (konsistensi teks vs visual) ─────────────────────
-def _agent_checker(teks_info, visual_info):
+# ── Agent Checker (KOORDINATOR — cek semua hasil agent, beri koreksi) ──
+def _agent_checker_all(teks_info, visual_info, produk, teknis):
     prompt = (
-        "Kamu Agent Checker untuk tim sales BMS. Bandingkan & satukan dua sumber info di bawah "
-        "(dari teks customer & dari gambar/CAD). Tugasmu: cek konsistensi, temukan MISS/ambiguitas/kontradiksi "
-        "antara teks dan gambar, lalu susun daftar informasi final yang sudah diverifikasi.\n\n"
-        "Kembalikan HANYA JSON valid (tanpa backtick): "
-        "{\"info_terverifikasi\":\"ringkasan poin yang sudah dicek\", \"inkonsistensi\":[\"...\"], "
-        "\"pertanyaan_klarifikasi\":[\"...\"]}\n\n"
-        "=== INFO DARI TEKS ===\n" + teks_info + "\n\n=== INFO DARI GAMBAR/CAD ===\n" + visual_info
+        "Kamu Agent Checker (KOORDINATOR) untuk tim BMS. Tugasmu memastikan SEMUA hasil agent SALING KONSISTEN "
+        "dan sesuai dengan apa yang dibaca Reader (teks & gambar). Reader adalah acuan kebenaran kebutuhan customer.\n\n"
+        "Periksa:\n"
+        "- Apakah PRODUK yang direkomendasikan benar-benar sesuai kebutuhan yang disebut Reader? (mis. Reader minta A, "
+        "tapi Product menawarkan barang yang tidak nyambung -> tidak konsisten).\n"
+        "- Apakah TEKNIS/SKEMATIK sesuai dengan kebutuhan Reader dan produk yang dipilih?\n"
+        "- Apakah ada kontradiksi antara teks & gambar, atau info yang miss/ambigu?\n\n"
+        "Kalau ADA yang tidak sesuai, tulis INSTRUKSI KOREKSI spesifik untuk agent terkait (apa yang harus diperbaiki "
+        "agar sesuai kata Reader).\n\n"
+        "Kembalikan HANYA JSON valid (tanpa backtick):\n"
+        "{\"konsisten\": true/false, \"koreksi_product\":\"instruksi perbaikan utk Agent Product (kosong bila sudah benar)\", "
+        "\"koreksi_technical\":\"instruksi perbaikan utk Agent Technical (kosong bila sudah benar)\", "
+        "\"inkonsistensi\":[\"...\"], \"pertanyaan_klarifikasi\":[\"...\"], \"info_terverifikasi\":\"ringkasan kebutuhan final yang sudah selaras\"}\n\n"
+        "=== READER TEKS ===\n" + teks_info +
+        "\n\n=== READER VISUAL ===\n" + visual_info +
+        "\n\n=== HASIL AGENT PRODUCT ===\n" + produk +
+        "\n\n=== HASIL AGENT TECHNICAL ===\n" + teknis
     )
     return _json(_gen(prompt), {
-        "info_terverifikasi": teks_info + "\n" + visual_info,
+        "konsisten": True, "koreksi_product": "", "koreksi_technical": "",
         "inkonsistensi": [], "pertanyaan_klarifikasi": [],
+        "info_terverifikasi": teks_info + "\n" + visual_info,
     })
 
 
@@ -143,24 +154,28 @@ def _gen_search(prompt):
     return _gen(prompt)
 
 
-def _agent_product(info):
+def _agent_product(info, koreksi=""):
+    fb = ("\n\n=== KOREKSI DARI CHECKER (WAJIB dipatuhi) ===\n" + koreksi) if koreksi else ""
     prompt = (
-        "Kamu Agent Product untuk solusi Building Management System. Berdasarkan kebutuhan terverifikasi di bawah, "
+        "Kamu Agent Product untuk solusi Building Management System. Berdasarkan kebutuhan (dari Reader) di bawah, "
         "rekomendasikan produk untuk tiap kebutuhan.\n"
         "PRIORITAS UTAMA: produk merek AZBIL (Yamatake) — mis. controller, sensor suhu/kelembapan/tekanan, "
         "actuator, control valve, damper actuator, differential pressure switch, dll. Sebutkan seri/model Azbil "
         "yang cocok bila kamu yakin.\n"
         "Jika TIDAK ADA produk Azbil yang cocok untuk suatu kebutuhan, CARI di web produk alternatif dari merek "
         "lain yang relevan, sebutkan merek + tipe-nya dan tandai '(alternatif non-Azbil)'.\n"
+        "Produk yang kamu rekomendasikan HARUS sesuai dengan kebutuhan yang disebut Reader. Jangan menawarkan "
+        "produk yang tidak relevan.\n"
         "Format: daftar per kebutuhan -> produk + merek + fungsi singkat. Jangan mengarang model spesifik yang "
         "tidak kamu yakini; kalau ragu sebut kategori produknya.\n\n"
-        "=== KEBUTUHAN TERVERIFIKASI ===\n" + info
+        "=== KEBUTUHAN (DARI READER) ===\n" + info + fb
     )
     return _gen_search(prompt)
 
 
 # ── Agent: Technical (skematik kerja + jumlah barang) ─────────────────
-def _agent_technical(info, produk):
+def _agent_technical(info, produk, koreksi=""):
+    fb = ("\n\n=== KOREKSI DARI CHECKER (WAJIB dipatuhi) ===\n" + koreksi) if koreksi else ""
     prompt = (
         "Kamu Agent Technical BMS. Dari kebutuhan + produk terpilih di bawah, susun:\n"
         "1. SKEMATIK / ALUR KERJA SISTEM: jelaskan topologi & cara kerja secara teknis (boleh diagram teks/ASCII "
@@ -169,8 +184,8 @@ def _agent_technical(info, produk):
         "pasti, beri estimasi dan tulis asumsinya.\n"
         "3. CATATAN INTEGRASI: protokol, wiring/power, hal teknis penting.\n"
         "Bahasa Indonesia teknis yang jelas. Jangan mengarang angka pasti; tandai yang berupa estimasi.\n\n"
-        "=== KEBUTUHAN TERVERIFIKASI ===\n" + info +
-        "\n\n=== PRODUK TERPILIH ===\n" + produk
+        "=== KEBUTUHAN ===\n" + info +
+        "\n\n=== PRODUK TERPILIH ===\n" + produk + fb
     )
     return _gen(prompt)
 
@@ -236,16 +251,34 @@ def analisa_bms(chat, image_base64="", image_mime="image/png"):
                     file_bytes = None
 
     # ── Pipeline multi-agent ──
+    # 1) Reader baca sumber (acuan kebenaran)
     teks_info   = _agent_reader_teks(chat)
     visual_info = _agent_reader_visual(file_bytes, mime)
-    checker     = _agent_checker(teks_info, visual_info)
-    info        = checker.get("info_terverifikasi", "") or (teks_info + "\n" + visual_info)
-    inkon       = checker.get("inkonsistensi", []) or []
-    tanya       = checker.get("pertanyaan_klarifikasi", []) or []
-    produk      = _agent_product(info)
-    teknis      = _agent_technical(info, produk)
-    flow        = _agent_flow(teknis)
-    hasil       = _agent_result(info, inkon, tanya, produk, teknis)
+    sumber      = "TEKS:\n" + teks_info + "\n\nVISUAL:\n" + visual_info
+
+    # 2) Product + Technical, lalu Checker (koordinator) verifikasi semua.
+    #    Kalau tidak konsisten, Checker kirim koreksi -> agent perbaiki (maks 2 putaran).
+    koreksi_p = koreksi_t = ""
+    produk = teknis = ""
+    checker = {}
+    for _ in range(2):
+        produk  = _agent_product(sumber, koreksi_p)
+        teknis  = _agent_technical(sumber, produk, koreksi_t)
+        checker = _agent_checker_all(teks_info, visual_info, produk, teknis)
+        if checker.get("konsisten", True):
+            break
+        koreksi_p = checker.get("koreksi_product", "") or ""
+        koreksi_t = checker.get("koreksi_technical", "") or ""
+        if not koreksi_p and not koreksi_t:
+            break
+
+    info  = checker.get("info_terverifikasi", "") or sumber
+    inkon = checker.get("inkonsistensi", []) or []
+    tanya = checker.get("pertanyaan_klarifikasi", []) or []
+
+    # 3) Flow + Result dari hasil yang sudah diselaraskan Checker
+    flow  = _agent_flow(teknis)
+    hasil = _agent_result(info, inkon, tanya, produk, teknis)
 
     return {
         "reader_teks":            teks_info,
