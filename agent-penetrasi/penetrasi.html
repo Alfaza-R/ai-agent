@@ -79,11 +79,11 @@ html, body { background:#0f1420 !important; }
 .pen-reco-box .pen-reco-sub { margin:0 0 14px; font-size:13px; color:#94a3b8; line-height:1.6; }
 .pen-reco-group { margin-bottom:16px; }
 .pen-reco-group > label.pen-group-title { display:block; font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.5px; color:#8b5cf6; margin-bottom:9px; }
-.pen-check { display:flex; gap:10px; align-items:flex-start; background:#0f1420; border:1px solid #2a3344; border-radius:10px; padding:11px 13px; margin-bottom:8px; cursor:pointer; transition:border-color .15s, background .15s; }
+.pen-check { display:block !important; position:relative; box-sizing:border-box; width:100%; background:#0f1420; border:1px solid #2a3344; border-radius:10px; padding:11px 14px 11px 42px; margin-bottom:8px; cursor:pointer; transition:border-color .15s, background .15s; word-break:normal; overflow-wrap:anywhere; }
 .pen-check:hover { border-color:#5b4a8a; }
-.pen-check input { margin-top:3px; width:16px; height:16px; accent-color:#8b5cf6; flex-shrink:0; cursor:pointer; }
+.pen-check input { position:absolute; left:14px; top:13px; width:16px !important; height:16px !important; min-width:0 !important; max-width:16px !important; margin:0 !important; padding:0 !important; accent-color:#8b5cf6; cursor:pointer; }
 .pen-check.on { border-color:#8b5cf6; background:#1a1730; }
-.pen-check-txt { flex:1 1 auto; min-width:0; word-break:normal; overflow-wrap:anywhere; }
+.pen-check-txt { display:block; width:100%; }
 .pen-check-txt b { display:block; color:#e2e8f0; font-size:14px; }
 .pen-check-txt span { display:block; color:#94a3b8; font-size:12.5px; line-height:1.5; margin-top:2px; }
 .pen-reco-other { width:100%; margin-top:2px; background:#0f1420; border:1px solid #2a3344; border-radius:10px; color:#e5e7eb; padding:10px 13px; font-family:inherit; font-size:13.5px; }
