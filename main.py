@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from mesin_agent import buat_brief   # ambil mesin agent yang tadi kita bikin
 from mesin_seo import cek_seo        # mesin cek SEO/readability ala Yoast
 from mesin_bms import analisa_bms    # asisten sales Building Management System
+from mesin_penetrasi import analisa_penetrasi  # sistem multi-agent penetrasi pasar
 
 # Bikin aplikasi backend-nya
 app = FastAPI()
@@ -65,3 +66,26 @@ class PesananBMS(BaseModel):
 @app.post("/bms-sales")
 def endpoint_bms_sales(pesanan: PesananBMS):
     return analisa_bms(pesanan.chat, pesanan.image_base64, pesanan.image_mime)
+
+# Pesanan untuk sistem multi-agent penetrasi pasar (form terstruktur)
+class PesananPenetrasi(BaseModel):
+    nama_produk: str = ""
+    deskripsi: str = ""
+    target_market: str = ""
+    lokasi: str = ""
+    kompetitor: str = ""           # opsional
+    budget: str = ""               # opsional
+    tujuan: str = ""               # opsional
+
+# Loket penetrasi pasar: jalankan pipeline 10 agent + analytics, balikin semua hasil
+@app.post("/penetrasi-market")
+def endpoint_penetrasi(pesanan: PesananPenetrasi):
+    return analisa_penetrasi(
+        pesanan.nama_produk,
+        pesanan.deskripsi,
+        pesanan.target_market,
+        pesanan.lokasi,
+        pesanan.kompetitor,
+        pesanan.budget,
+        pesanan.tujuan,
+    )

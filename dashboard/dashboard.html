@@ -52,6 +52,7 @@ html, body { background: #0f1420 !important; }
   var LINK_SPREADSHEET      = "https://docs.google.com/spreadsheets/d/1086rJ803Dl5K-YZIFBbF6ObLE5Upt7mnJcokpLvbVEM/edit";
   var LINK_API_DOCS         = BACKEND_URL + "/docs";
   var LINK_BMS              = "GANTI_DENGAN_URL_HALAMAN_BMS"; // mis. https://eknowledge.taharica.com/bms-sales/
+  var LINK_PENETRASI        = "GANTI_DENGAN_URL_HALAMAN_PENETRASI"; // mis. https://eknowledge.taharica.com/market-penetration/
 
   // ===== Daftar agent =====
   var AGENTS = [
@@ -82,6 +83,13 @@ html, body { background: #0f1420 !important; }
       desc:"Tempel chat customer (+ gambar CAD). Agent menerjemahkan permintaan teknis yang rumit jadi mudah dipahami, lalu memberi rekomendasi balasan siap pakai untuk sales.",
       live:true,
       btn:{ text:"Buka BMS Assistant", url:LINK_BMS },
+    },
+    {
+      icon:"🚀", bg:"rgba(139,92,246,.16)",
+      nama:"Market Penetration Strategist",
+      desc:"Isi profil bisnis, 11 AI agent (riset pasar, kompetitor, persona → positioning, pricing, channel → content, SEO, ads, lead gen → analitik) menyusun strategi penetrasi pasar lengkap + rencana 30/60/90 hari.",
+      live:true,
+      btn:{ text:"Buka Market Strategist", url:LINK_PENETRASI },
     },
   ];
 

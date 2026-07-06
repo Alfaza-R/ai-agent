@@ -1,0 +1,213 @@
+<!-- ============================================================
+     MARKET PENETRATION — sistem multi-agent (tempel ke Elementor: widget HTML)
+     Halaman terpisah, diakses dari kartu di dashboard AI agent.
+     ============================================================ -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
+<div id="pen">
+  <div class="pen-head">
+    <h2 class="pen-title">🚀 Market Penetration Strategist</h2>
+    <p class="pen-sub">Isi profil bisnismu. 11 AI agent (riset → strategi → eksekusi → analitik) akan menyusun strategi penetrasi pasar lengkap.</p>
+  </div>
+
+  <div class="pen-panel">
+    <div class="pen-grid">
+      <div class="pen-field pen-col2">
+        <label class="pen-label">Nama Produk / Jasa *</label>
+        <input id="pen-nama" type="text" placeholder="mis. Timbangan Laboratorium Orion">
+      </div>
+      <div class="pen-field pen-col2">
+        <label class="pen-label">Deskripsi Singkat *</label>
+        <textarea id="pen-deskripsi" placeholder="Apa produknya, keunggulan, untuk apa..."></textarea>
+      </div>
+      <div class="pen-field">
+        <label class="pen-label">Target Market *</label>
+        <input id="pen-target" type="text" placeholder="mis. laboratorium industri, QC pabrik">
+      </div>
+      <div class="pen-field">
+        <label class="pen-label">Lokasi / Pasar</label>
+        <input id="pen-lokasi" type="text" placeholder="mis. Indonesia, Jabodetabek">
+      </div>
+      <div class="pen-field">
+        <label class="pen-label">Kompetitor <span class="pen-opt">(opsional)</span></label>
+        <input id="pen-kompetitor" type="text" placeholder="mis. Merk A, Merk B">
+      </div>
+      <div class="pen-field">
+        <label class="pen-label">Budget <span class="pen-opt">(opsional)</span></label>
+        <input id="pen-budget" type="text" placeholder="mis. Rp 50 juta/bulan">
+      </div>
+      <div class="pen-field pen-col2">
+        <label class="pen-label">Tujuan / Goal <span class="pen-opt">(opsional)</span></label>
+        <input id="pen-tujuan" type="text" placeholder="mis. rebut 10% pangsa segmen lab dalam 6 bulan">
+      </div>
+    </div>
+
+    <button id="pen-submit" class="pen-btn" type="button">✨ Susun Strategi Penetrasi</button>
+    <div id="pen-status" class="pen-status"></div>
+  </div>
+
+  <div id="pen-result" class="pen-result"></div>
+</div>
+
+<style>
+html, body { background:#0f1420 !important; }
+#pen { font-family:'Poppins', system-ui, sans-serif; max-width:880px; margin:0 auto; color:#e5e7eb; padding:28px 20px; }
+#pen * { box-sizing:border-box; }
+.pen-head { margin-bottom:20px; }
+.pen-title { font-size:26px; font-weight:800; margin:0; color:#f8fafc; }
+.pen-sub { margin:6px 0 0; color:#94a3b8; font-size:14px; line-height:1.6; }
+.pen-panel { background:#161c2a; border:1px solid #273044; border-radius:16px; padding:22px; }
+.pen-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+.pen-field { display:flex; flex-direction:column; }
+.pen-col2 { grid-column:1 / -1; }
+.pen-label { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; color:#94a3b8; margin-bottom:6px; }
+.pen-opt { text-transform:none; letter-spacing:0; color:#64748b; font-weight:500; }
+#pen input, #pen textarea { width:100%; background:#0f1420; border:1px solid #2a3344; border-radius:10px; color:#e5e7eb; padding:11px 13px; font-family:inherit; font-size:14px; line-height:1.5; }
+#pen textarea { min-height:70px; resize:vertical; }
+#pen input:focus, #pen textarea:focus { outline:none; border-color:#3b82f6; }
+.pen-btn { width:100%; margin-top:16px; background:#8b5cf6; color:#fff; border:none; font-family:inherit; font-weight:700; font-size:15px; padding:13px 16px; border-radius:10px; cursor:pointer; transition:background .15s; }
+.pen-btn:hover { background:#7c3aed; }
+.pen-btn:disabled { opacity:.6; cursor:default; }
+.pen-status { font-size:13px; color:#fcd34d; margin-top:12px; text-align:center; line-height:1.6; }
+.pen-result { margin-top:18px; display:flex; flex-direction:column; gap:14px; }
+.pen-phase { font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:1px; color:#64748b; margin:10px 2px 0; }
+.pen-out { background:#161c2a; border:1px solid #273044; border-radius:14px; padding:18px 20px; }
+.pen-out-title { font-weight:700; font-size:14px; color:#93c5fd; margin-bottom:10px; }
+.pen-out.exec { border-color:#5b4a8a; background:#1a1730; }
+.pen-out.exec .pen-out-title { color:#c4b5fd; }
+.pen-out.research .pen-out-title { color:#5eead4; }
+.pen-out.strategy .pen-out-title { color:#fcd34d; }
+.pen-out.execution .pen-out-title { color:#86efac; }
+.pen-out.analytics .pen-out-title { color:#f9a8d4; }
+.pen-out-body { font-size:14px; line-height:1.7; color:#cbd5e1; overflow-x:auto; }
+.pen-out-body h1,.pen-out-body h2,.pen-out-body h3,.pen-out-body h4 { color:#e2e8f0; margin:12px 0 6px; line-height:1.3; }
+.pen-out-body h1 { font-size:17px; } .pen-out-body h2 { font-size:15px; } .pen-out-body h3,.pen-out-body h4 { font-size:13.5px; }
+.pen-out-body p { margin:0 0 8px; }
+.pen-out-body ul,.pen-out-body ol { margin:4px 0 8px; padding-left:20px; }
+.pen-out-body li { margin-bottom:3px; }
+.pen-out-body strong { color:#f1f5f9; font-weight:700; }
+.pen-out-body code { background:#0f1420; padding:1px 5px; border-radius:5px; font-size:12.5px; }
+.pen-out-body hr { border:none; border-top:1px solid #273044; margin:12px 0; }
+.pen-out-body table { border-collapse:collapse; width:100%; margin:8px 0; font-size:12.5px; }
+.pen-out-body th,.pen-out-body td { border:1px solid #2a3344; padding:6px 9px; text-align:left; vertical-align:top; }
+.pen-out-body th { background:#1f2737; color:#e2e8f0; font-weight:700; }
+.pen-copy { float:right; background:#1f2737; border:1px solid #3b4860; color:#cbd5e1; font-size:11px; padding:4px 10px; border-radius:7px; cursor:pointer; }
+.pen-copy:hover { background:#273044; }
+.pen-badge { display:inline-block; font-size:11px; font-weight:700; padding:2px 9px; border-radius:20px; margin-left:8px; vertical-align:middle; }
+.pen-badge.ok { background:#14532d; color:#86efac; }
+.pen-badge.warn { background:#5c3a12; color:#fcd34d; }
+</style>
+
+<script>
+(function () {
+  var BACKEND_URL = "https://arapaza-ai-agent.hf.space";
+
+  function esc(s) { return (s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+  function md(s) {
+    s = (s === 0 || s) ? String(s) : "-";
+    if (!s.trim()) s = "-";
+    try {
+      if (typeof marked !== "undefined") {
+        var html = marked.parse(s, { breaks: true, gfm: true });
+        return (typeof DOMPurify !== "undefined") ? DOMPurify.sanitize(html) : html;
+      }
+    } catch (e) {}
+    return esc(s).replace(/\n/g, "<br>");
+  }
+
+  function list(arr, prefix) {
+    if (!arr || !arr.length) return "";
+    return "\n\n" + (prefix || "") + "\n- " + arr.join("\n- ");
+  }
+
+  document.getElementById("pen-submit").addEventListener("click", function () {
+    var nama    = document.getElementById("pen-nama").value.trim();
+    var desk    = document.getElementById("pen-deskripsi").value.trim();
+    var target  = document.getElementById("pen-target").value.trim();
+    if (!nama || !desk || !target) { alert("Isi minimal: Nama produk, Deskripsi, dan Target market."); return; }
+
+    var payload = {
+      nama_produk:   nama,
+      deskripsi:     desk,
+      target_market: target,
+      lokasi:        document.getElementById("pen-lokasi").value.trim(),
+      kompetitor:    document.getElementById("pen-kompetitor").value.trim(),
+      budget:        document.getElementById("pen-budget").value.trim(),
+      tujuan:        document.getElementById("pen-tujuan").value.trim()
+    };
+
+    var btn = document.getElementById("pen-submit");
+    var statusEl = document.getElementById("pen-status");
+    var resEl = document.getElementById("pen-result");
+    btn.disabled = true; btn.textContent = "⏳ Menyusun strategi...";
+    statusEl.textContent = "11 agent sedang bekerja (riset → strategi → eksekusi → analitik). Ini bisa 1-3 menit, mohon tunggu...";
+    resEl.innerHTML = "";
+
+    fetch(BACKEND_URL + "/penetrasi-market", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    })
+    .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+    .then(function (data) {
+      function card(title, body, cls, copy) {
+        var c = copy ? '<button class="pen-copy" type="button">Salin</button>' : '';
+        return '<div class="pen-out ' + (cls || '') + '">' + c +
+               '<div class="pen-out-title">' + title + '</div><div class="pen-out-body">' + md(body || '-') + '</div></div>';
+      }
+      function phase(t) { return '<div class="pen-phase">' + t + '</div>'; }
+
+      var a = data.analytics || {};
+      var selaras = a.selaras !== false;
+      var badge = selaras
+        ? '<span class="pen-badge ok">✓ selaras</span>'
+        : '<span class="pen-badge warn">⚠ perlu iterasi</span>';
+
+      var analyticsBody = ""
+        + (a.rencana_30_60_90 ? "### Rencana 30 / 60 / 90 Hari\n" + a.rencana_30_60_90 : "")
+        + (a.kpi && a.kpi.length ? "\n\n### KPI yang Dipantau\n- " + a.kpi.join("\n- ") : "")
+        + (a.rekomendasi_iterasi && a.rekomendasi_iterasi.length ? "\n\n### Rekomendasi Iterasi\n- " + a.rekomendasi_iterasi.join("\n- ") : "")
+        + (a.catatan_inkonsistensi && a.catatan_inkonsistensi.length ? "\n\n### ⚠️ Catatan Inkonsistensi\n- " + a.catatan_inkonsistensi.join("\n- ") : "");
+
+      resEl.innerHTML =
+        card('🎯 Ringkasan Eksekutif' + badge, data.ringkasan_eksekutif, 'exec', true) +
+
+        phase('🧭 Orchestrator') +
+        card('🧭 Orchestrator — Objektif & Arahan', data.orchestrator, '', true) +
+
+        phase('🔬 Research & Intelligence') +
+        card('📊 Market Research (TAM/SAM/SOM, tren, gap)', data.market_research, 'research', true) +
+        card('🥊 Competitor Analysis (pricing, positioning, review)', data.competitor_analysis, 'research', true) +
+        card('👥 Customer Insight (persona, pain point, segmentasi)', data.customer_insight, 'research', true) +
+
+        phase('🧠 Strategy') +
+        card('🎯 Positioning (value proposition & diferensiasi)', data.positioning, 'strategy', true) +
+        card('💰 Pricing (strategi harga)', data.pricing, 'strategy', true) +
+        card('📡 Channel Strategy (channel go-to-market)', data.channel_strategy, 'strategy', true) +
+
+        phase('⚙️ Execution') +
+        card('🔎 SEO / Keyword (riset kata kunci)', data.seo_keyword, 'execution', true) +
+        card('✍️ Content (copywriting & materi campaign)', data.content, 'execution', true) +
+        card('📣 Social / Ads (campaign, jadwal, A/B test)', data.social_ads, 'execution', true) +
+        card('🧲 Lead Gen (cari & kualifikasi prospek)', data.lead_gen, 'execution', true) +
+
+        phase('📈 Analytics — Feedback Loop') +
+        card('📈 Analytics — KPI, Rencana 30/60/90, Iterasi', analyticsBody, 'analytics', true);
+
+      statusEl.textContent = "";
+      resEl.querySelectorAll(".pen-copy").forEach(function (b) {
+        b.addEventListener("click", function () {
+          var body = b.parentElement.querySelector(".pen-out-body");
+          var t = body ? (body.innerText || body.textContent || "") : "";
+          navigator.clipboard.writeText(t).then(function () {
+            b.textContent = "✓ Tersalin"; setTimeout(function () { b.textContent = "Salin"; }, 1500);
+          });
+        });
+      });
+    })
+    .catch(function (err) { statusEl.textContent = "❌ Gagal: " + err.message; })
+    .finally(function () { btn.disabled = false; btn.textContent = "✨ Susun Strategi Penetrasi"; });
+  });
+})();
+</script>

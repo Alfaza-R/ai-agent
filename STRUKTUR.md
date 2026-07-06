@@ -11,11 +11,13 @@ ai-agent/
 ├── mesin_brief_checker.py      ← mesin Brief Checker          │ file inti,
 ├── mesin_seo.py                ← mesin SEO Checker            │ dipanggil main.py,
 ├── mesin_bms.py                ← mesin BMS                    │ harus tetap di root
-├── Dockerfile, requirements.txt, README.md                   ┘ (dipakai deploy HF)
+├── mesin_penetrasi.py          ← mesin Market Penetration     │ (dipakai deploy HF)
+├── Dockerfile, requirements.txt, README.md                   ┘
 │
 ├── agent-content-planner/      📝 dokumentasi Content Planner + Brief Checker
 ├── agent-seo/                  🔎 dokumentasi SEO + Apps Script + app password
 ├── agent-bms/                  🏢 dokumentasi BMS + bms.html (frontend)
+├── agent-penetrasi/            🚀 dokumentasi Market Penetration + penetrasi.html
 ├── dashboard/                  📊 dokumentasi + dashboard.html (frontend hub)
 └── _arsip-latihan/             🗑️ file latihan lama (tidak dipakai)
 ```
@@ -35,6 +37,7 @@ ai-agent/
 | SEO Checker (Yoast) | `mesin_seo.py` | `POST /cek-seo` | Apps Script generator | [agent-seo/](agent-seo/agent-seo-checker.md) |
 | Article + SEO Generator | Apps Script (`agent-seo/appscript-baru.txt`) | — (di Google Sheet) | Google Spreadsheet | [agent-seo/](agent-seo/agent-seo-generator.md) |
 | BMS Sales Assistant | `mesin_bms.py` | `POST /bms-sales` | `agent-bms/bms.html` | [agent-bms/](agent-bms/agent-bms.md) |
+| Market Penetration | `mesin_penetrasi.py` | `POST /penetrasi-market` | `agent-penetrasi/penetrasi.html` | [agent-penetrasi/](agent-penetrasi/agent-penetrasi.md) |
 | Dashboard (hub) | — | — | `dashboard/dashboard.html` | [dashboard/](dashboard/dashboard.md) |
 
 ## Cara update singkat
