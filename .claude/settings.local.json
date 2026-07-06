@@ -15,7 +15,8 @@
       "WebFetch(domain:anaconda.org)",
       "Bash(python -m py_compile mesin_bms.py)",
       "Bash(python -m py_compile mesin_brief_checker.py mesin_agent.py main.py)",
-      "mcp__visualize__show_widget"
+      "mcp__visualize__show_widget",
+      "Bash(python -c \"import main; print\\('OK import main'\\)\")"
     ]
   }
 }

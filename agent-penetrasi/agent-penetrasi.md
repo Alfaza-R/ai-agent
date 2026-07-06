@@ -12,7 +12,14 @@ Sistem 11 AI agent untuk menyusun strategi penetrasi pasar dari profil bisnis: r
 { "nama_produk":"...", "deskripsi":"...", "target_market":"...",
   "lokasi":"", "kompetitor":"", "budget":"", "tujuan":"" }
 ```
-Wajib: `nama_produk`, `deskripsi`, `target_market`. Sisanya opsional.
+Wajib: `nama_produk`, `deskripsi`. Sisanya opsional.
+
+### Alur 2 tahap (target market & lokasi)
+- Kalau `target_market`/`lokasi` **diisi** → agent langsung ikutin.
+- Kalau **kosong** → frontend panggil `POST /penetrasi-rekomendasi` dulu (fungsi `rekomendasi_target`) → agent riset & usulkan opsi (checkbox). User centang → nilai terpilih dikirim ke `/penetrasi-market` untuk full pipeline.
+- Kompetitor, budget, goal → opsional biasa (tanpa checkbox).
+
+`POST /penetrasi-rekomendasi` → `{ perlu_target, perlu_lokasi, target_options:[{label,alasan}], lokasi_options:[{label,alasan}] }` (hanya field kosong yang diusulkan).
 
 ## Pipeline (urutan)
 **🧭 Orchestrator** — rangkai brief, tetapkan objektif & arahan riset.

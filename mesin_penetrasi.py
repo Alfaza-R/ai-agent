@@ -59,6 +59,63 @@ def _json(txt, fallback):
         return fallback
 
 
+# ── TAHAP 1: REKOMENDASI target market & lokasi (kalau user tak mengisi) ─
+def rekomendasi_target(nama_produk="", deskripsi="", target_market="", lokasi=""):
+    """
+    Riset awal: usulkan pilihan target market & lokasi berdasarkan produk.
+    Hanya mengusulkan untuk field yang KOSONG. Field yang sudah diisi user
+    dihormati (perlu_* = False) dan tidak diusulkan.
+    """
+    perlu_target = not (target_market or "").strip()
+    perlu_lokasi = not (lokasi or "").strip()
+
+    if not perlu_target and not perlu_lokasi:
+        return {"perlu_target": False, "perlu_lokasi": False,
+                "target_options": [], "lokasi_options": []}
+
+    minta = []
+    if perlu_target:
+        minta.append('"target_options": [ {"label":"segmen singkat","alasan":"kenapa prospektif"} , ... 4-6 item ]')
+    if perlu_lokasi:
+        minta.append('"lokasi_options": [ {"label":"wilayah/pasar","alasan":"kenapa cocok"} , ... 4-6 item ]')
+
+    konteks = ""
+    if target_market:
+        konteks += "\nUser sudah menentukan target: " + target_market
+    if lokasi:
+        konteks += "\nUser sudah menentukan lokasi: " + lokasi
+
+    prompt = (
+        "Kamu Research Agent tahap awal untuk strategi penetrasi pasar. Berdasarkan produk di bawah, "
+        "USULKAN pilihan " +
+        ("target market (segmen pelanggan) " if perlu_target else "") +
+        ("dan " if perlu_target and perlu_lokasi else "") +
+        ("lokasi/pasar geografis " if perlu_lokasi else "") +
+        "yang paling prospektif. Beri opsi konkret & beragam supaya user tinggal memilih (centang).\n"
+        "Tiap opsi: label singkat + alasan 1 kalimat. Realistis, jangan mengada-ada.\n\n"
+        "Kembalikan HANYA JSON valid (tanpa backtick):\n{ " + ", ".join(minta) + " }\n\n"
+        "=== PRODUK ===\nNama: " + (nama_produk or "-") + "\nDeskripsi: " + (deskripsi or "-") + konteks
+    )
+    hasil = _json(_gen_search(prompt), {})
+
+    def _bersih(items):
+        out = []
+        for it in (items or []):
+            if isinstance(it, dict) and it.get("label"):
+                out.append({"label": str(it["label"]).strip(),
+                            "alasan": str(it.get("alasan", "")).strip()})
+            elif isinstance(it, str) and it.strip():
+                out.append({"label": it.strip(), "alasan": ""})
+        return out
+
+    return {
+        "perlu_target":   perlu_target,
+        "perlu_lokasi":   perlu_lokasi,
+        "target_options": _bersih(hasil.get("target_options")) if perlu_target else [],
+        "lokasi_options": _bersih(hasil.get("lokasi_options")) if perlu_lokasi else [],
+    }
+
+
 # ── ORCHESTRATOR ──────────────────────────────────────────────────────
 def _orchestrator(brief):
     prompt = (
