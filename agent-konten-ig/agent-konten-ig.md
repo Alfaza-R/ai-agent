@@ -10,9 +10,16 @@ Dari brief → susun 1–5 slide konten Instagram format **4:5** (1080×1350) si
 
 ## Input (JSON)
 ```json
-{ "brief": "...deskripsi konten...", "jumlah": 0 }
+{ "brief": "...deskripsi konten...", "jumlah": 0,
+  "produk_base64": "", "produk_mime": "image/png" }
 ```
-`jumlah` 0 = agent tentukan sendiri (1–5).
+`jumlah` 0 = agent tentukan sendiri (1–5). `produk_base64` = foto produk khusus untuk konten ini (opsional).
+
+### Foto produk per-konten
+- Foto produk yang di-upload masuk sebagai aset khusus bernama `PRODUK_UTAMA` yang bisa dipilih Agent Layouting (jadi bg atau foto tempel).
+- Kalau layout memilih `bg_tipe: generate` + `GEMINI_IMAGE_MODEL` aktif → gambar di-generate dari foto produk + referensi (produk dipertahankan, gaya disesuaikan referensi).
+- Kalau generative **belum aktif** → foto produk **ditempel langsung** ke layout (fallback, tetap berguna).
+- Slide punya flag `bg_pakai_produk` / `tempel_pakai_produk`; frontend memasang foto produk yang di-upload di posisi itu.
 
 ## Pipeline
 1. **🅰️ Detailing** (`_agent_detailing`) — dari brief → arahan detail per slide (headline, subteks, poin, cta, mood, warna, arahan visual).

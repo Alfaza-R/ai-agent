@@ -89,13 +89,18 @@ def _json(txt, fallback):
         return fallback
 
 
-def _gen_image(prompt):
-    """Generate gambar via model image Gemini. Return base64 PNG atau '' (fallback)."""
+def _gen_image(prompt, input_images=None):
+    """Generate/edit gambar via model image Gemini (boleh dikondisikan gambar input).
+    Return base64 PNG atau '' (fallback)."""
     if not IMG_MODEL or types is None:
         return ""
     try:
+        contents = [prompt]
+        for b, m in (input_images or []):
+            if b:
+                contents.append(types.Part.from_bytes(data=b, mime_type=m or "image/png"))
         cfg = types.GenerateContentConfig(response_modalities=["IMAGE"])
-        resp = client.models.generate_content(model=IMG_MODEL, contents=[prompt], config=cfg)
+        resp = client.models.generate_content(model=IMG_MODEL, contents=contents, config=cfg)
         for cand in (resp.candidates or []):
             for part in (cand.content.parts or []):
                 data = getattr(getattr(part, "inline_data", None), "data", None)
@@ -109,28 +114,35 @@ def _gen_image(prompt):
 
 
 # ── Agent Detailing ───────────────────────────────────────────────────
-def _agent_detailing(brief, jumlah, koreksi=""):
+def _agent_detailing(brief, jumlah, koreksi="", produk_img=None):
     fb = ("\n\n=== KOREKSI DARI CHECKER (WAJIB) ===\n" + koreksi) if koreksi else ""
     jml = ("Buat tepat " + str(jumlah) + " slide.") if jumlah else "Tentukan jumlah slide 1-5 sesuai kebutuhan brief."
+    pr = ("\nCATATAN: ada FOTO PRODUK terlampir — perhatikan produknya dan buat arahan visual yang menonjolkan produk ini."
+          if produk_img else "")
     prompt = (
         "Kamu Agent Detailing untuk konten Instagram (format 4:5). Dari brief di bawah, buat ARAHAN DETAIL per slide "
         "yang akan dipakai Agent Layouting.\n" + jml + "\n"
         "Tiap slide tentukan: peran (cover/isi/cta), headline, subteks, poin isi (bila ada), CTA (bila slide cta), "
         "mood/nuansa, saran warna dominan, dan arahan visual singkat (aset seperti apa yang cocok).\n"
-        "Bahasa Indonesia, ringkas & konkret. JANGAN mengarang klaim yang tak ada di brief.\n\n"
+        "Bahasa Indonesia, ringkas & konkret. JANGAN mengarang klaim yang tak ada di brief." + pr + "\n\n"
         "Kembalikan HANYA JSON valid (tanpa backtick):\n"
         "{ \"jumlah_slide\": N, \"slides\": [ {\"peran\":\"cover/isi/cta\", \"headline\":\"...\", \"subteks\":\"...\", "
         "\"poin\":[\"...\"], \"cta\":\"...\", \"mood\":\"...\", \"warna\":\"#hex atau nama\", \"arahan_visual\":\"...\"} ] }\n\n"
         "=== BRIEF ===\n" + brief + fb
     )
-    d = _json(_gen(prompt), {"jumlah_slide": 0, "slides": []})
+    imgs = [produk_img] if produk_img else None
+    d = _json(_gen(prompt, imgs), {"jumlah_slide": 0, "slides": []})
     return d if isinstance(d, dict) else {"jumlah_slide": 0, "slides": []}
 
 
 # ── Agent Layouting ───────────────────────────────────────────────────
-def _agent_layouting(detailing, aset_list, koreksi=""):
+def _agent_layouting(detailing, aset_list, koreksi="", produk_img=None):
     fb = ("\n\n=== KOREKSI (WAJIB) ===\n" + koreksi) if koreksi else ""
     daftar_aset = "\n".join("- " + a["name"] for a in aset_list) or "(tidak ada aset — pakai warna/gradient)"
+    prod_note = ("\nADA FOTO PRODUK terlampir dengan nama khusus 'PRODUK_UTAMA' (sudah masuk daftar aset). "
+                 "Utamakan pakai 'PRODUK_UTAMA' sebagai bg_aset atau aset_tempel pada slide yang menonjolkan produk. "
+                 "Bila ingin latar hasil olahan AI dari produk, pakai bg_tipe 'generate' dan tulis bg_generate_prompt "
+                 "yang mendeskripsikan scene di sekitar produk.") if produk_img else ""
     prompt = (
         "Kamu Agent Layouting konten Instagram 4:5 (1080x1350). Dari arahan Detailing di bawah, susun LAYOUT tiap slide.\n"
         "Kamu HANYA boleh memakai aset gambar dari DAFTAR ASET (sebut persis nama filenya). Kalau tidak ada aset yang cocok, "
@@ -146,11 +158,12 @@ def _agent_layouting(detailing, aset_list, koreksi=""):
         "\"overlay\": true, "
         "\"aset_tempel\":\"nama file aset yang ditempel sebagai foto (opsional)\", "
         "\"teks\": [ {\"isi\":\"...\", \"peran\":\"headline|sub|body|cta\", \"posisi\":\"atas|tengah|bawah\", "
-        "\"align\":\"kiri|tengah|kanan\", \"warna\":\"#hex\", \"ukuran\":\"besar|sedang|kecil\"} ] } ] }\n\n"
+        "\"align\":\"kiri|tengah|kanan\", \"warna\":\"#hex\", \"ukuran\":\"besar|sedang|kecil\"} ] } ] }" + prod_note + "\n\n"
         "=== DAFTAR ASET (pakai nama persis) ===\n" + daftar_aset +
         "\n\n=== ARAHAN DETAILING ===\n" + json.dumps(detailing, ensure_ascii=False) + fb
     )
-    d = _json(_gen(prompt), {"slides": []})
+    imgs = [produk_img] if produk_img else None
+    d = _json(_gen(prompt, imgs), {"slides": []})
     return d if isinstance(d, dict) else {"slides": []}
 
 
@@ -196,27 +209,44 @@ def _aset_url(aset_list, name):
     return ""
 
 
-def _finalize_slides(layout, aset_list):
+_PRODUK_KEY = "PRODUK_UTAMA"
+
+
+def _finalize_slides(layout, aset_list, produk_img=None, ref_images=None):
     slides = []
     for s in (layout.get("slides") or []):
         if not isinstance(s, dict):
             continue
         bg_tipe = (s.get("bg_tipe") or "warna").lower()
+        bg_aset = s.get("bg_aset") or ""
+        aset_tempel = s.get("aset_tempel") or ""
         slide = {
             "bg_tipe": bg_tipe,
             "bg_warna": s.get("bg_warna") or "#111827",
             "bg_gradient": s.get("bg_gradient") if isinstance(s.get("bg_gradient"), list) else [],
-            "bg_aset_url": _aset_url(aset_list, s.get("bg_aset") or ""),
-            "aset_tempel_url": _aset_url(aset_list, s.get("aset_tempel") or ""),
+            "bg_aset_url": "" if bg_aset == _PRODUK_KEY else _aset_url(aset_list, bg_aset),
+            "aset_tempel_url": "" if aset_tempel == _PRODUK_KEY else _aset_url(aset_list, aset_tempel),
+            "bg_pakai_produk": bg_aset == _PRODUK_KEY,       # frontend tempel foto produk yang di-upload
+            "tempel_pakai_produk": aset_tempel == _PRODUK_KEY,
             "overlay": bool(s.get("overlay", bg_tipe in ("aset", "generate"))),
             "bg_generate_b64": "",
             "teks": [t for t in (s.get("teks") or []) if isinstance(t, dict) and (t.get("isi"))],
         }
-        # Generative background (opsional, hanya bila model image diset)
+        # Generative background (opsional, hanya bila model image diset) — dikondisikan foto produk + referensi
         if bg_tipe == "generate":
-            b64 = _gen_image((s.get("bg_generate_prompt") or "") + " — vertical 4:5 Instagram background, high quality")
+            kondisi = ([produk_img] if produk_img else []) + list(ref_images or [])[:3]
+            b64 = _gen_image(
+                (s.get("bg_generate_prompt") or "") +
+                " — vertical 4:5 Instagram content background. Jika ada foto produk terlampir, tampilkan produk itu "
+                "secara akurat (jangan mengubah bentuk produk), selaraskan gaya dengan gambar referensi.",
+                kondisi,
+            )
             if b64:
                 slide["bg_generate_b64"] = b64
+            elif produk_img:
+                # Fallback tanpa model image: pakai foto produk asli sebagai background
+                slide["bg_tipe"] = "aset"
+                slide["bg_pakai_produk"] = True
             else:
                 slide["bg_tipe"] = "gradient"
                 if not slide["bg_gradient"]:
@@ -226,7 +256,7 @@ def _finalize_slides(layout, aset_list):
 
 
 # ── PIPELINE UTAMA ────────────────────────────────────────────────────
-def buat_konten_ig(brief="", jumlah=0):
+def buat_konten_ig(brief="", jumlah=0, produk_base64="", produk_mime="image/png"):
     brief = (brief or "").strip()
     try:
         jumlah = int(jumlah or 0)
@@ -235,8 +265,19 @@ def buat_konten_ig(brief="", jumlah=0):
     if jumlah:
         jumlah = max(1, min(5, jumlah))
 
+    # Foto produk yang di-upload di brief (opsional)
+    produk_img = None
+    if produk_base64:
+        try:
+            produk_img = (base64.b64decode(produk_base64), produk_mime or "image/png")
+        except Exception:
+            produk_img = None
+
     # Ambil aset & referensi dari GitHub
     aset_list = _github_list(GH_DIR_ASET)
+    if produk_img:
+        # Foto produk jadi aset khusus yang bisa dipilih Agent Layouting
+        aset_list = [{"name": _PRODUK_KEY, "url": ""}] + aset_list
     ref_list = _github_list(GH_DIR_REF)
     ref_images = []
     for r in ref_list[:6]:
@@ -249,8 +290,8 @@ def buat_konten_ig(brief="", jumlah=0):
     detailing = layout = {}
     checker = {}
     for _ in range(2):
-        detailing = _agent_detailing(brief, jumlah, kor_d)
-        layout = _agent_layouting(detailing, aset_list, kor_l)
+        detailing = _agent_detailing(brief, jumlah, kor_d, produk_img)
+        layout = _agent_layouting(detailing, aset_list, kor_l, produk_img)
         checker = _agent_checker(brief, detailing, layout)
         if checker.get("konsisten", True):
             break
@@ -262,10 +303,10 @@ def buat_konten_ig(brief="", jumlah=0):
     # 2) Checker Visual — bandingkan dengan referensi; bila perlu, revisi layout sekali
     visual = _agent_checker_visual(layout, ref_images)
     if not visual.get("sesuai", True) and (visual.get("koreksi_layouting") or ""):
-        layout = _agent_layouting(detailing, aset_list, visual.get("koreksi_layouting", ""))
+        layout = _agent_layouting(detailing, aset_list, visual.get("koreksi_layouting", ""), produk_img)
 
-    # 3) Finalisasi slide (+ generate bg bila diaktifkan)
-    slides = _finalize_slides(layout, aset_list)
+    # 3) Finalisasi slide (+ generate bg dari foto produk & referensi bila diaktifkan)
+    slides = _finalize_slides(layout, aset_list, produk_img, ref_images)
 
     return {
         "detailing":       detailing,
@@ -273,7 +314,8 @@ def buat_konten_ig(brief="", jumlah=0):
         "checker":         checker,
         "checker_visual":  visual,
         "slides":          slides,
-        "jumlah_aset":     len(aset_list),
+        "jumlah_aset":     len(aset_list) - (1 if produk_img else 0),
         "jumlah_referensi": len(ref_list),
+        "ada_produk":      bool(produk_img),
         "generative_aktif": bool(IMG_MODEL),
     }

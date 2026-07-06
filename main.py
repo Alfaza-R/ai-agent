@@ -112,7 +112,9 @@ def endpoint_penetrasi(pesanan: PesananPenetrasi):
 class PesananKontenIG(BaseModel):
     brief: str = ""
     jumlah: int = 0                # 0 = agent tentukan sendiri (1-5)
+    produk_base64: str = ""        # foto produk untuk konten ini (opsional)
+    produk_mime: str = "image/png"
 
 @app.post("/konten-ig")
 def endpoint_konten_ig(pesanan: PesananKontenIG):
-    return buat_konten_ig(pesanan.brief, pesanan.jumlah)
+    return buat_konten_ig(pesanan.brief, pesanan.jumlah, pesanan.produk_base64, pesanan.produk_mime)

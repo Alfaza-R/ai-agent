@@ -21,6 +21,12 @@
         <option value="4">4</option><option value="5">5</option>
       </select>
     </div>
+    <div class="kig-file-row">
+      <label class="kig-file-label">📎 Foto Produk (opsional)<input type="file" id="kig-produk" accept="image/*" hidden></label>
+      <img id="kig-produk-prev" class="kig-produk-prev" alt="">
+      <span id="kig-produk-name" class="kig-file-name"></span>
+      <span class="kig-file-hint">Foto produk khusus untuk konten ini — dipakai sebagai foto di layout, atau bahan generate AI (bila aktif).</span>
+    </div>
     <button id="kig-submit" class="kig-btn" type="button">✨ Buat Konten</button>
     <div id="kig-status" class="kig-status"></div>
   </div>
@@ -42,6 +48,12 @@ html, body { background:#0f1420 !important; }
 #kig-brief:focus { outline:none; border-color:#ec4899; }
 .kig-row { display:flex; align-items:center; gap:12px; margin:14px 0; }
 #kig-jumlah { background:#0f1420; border:1px solid #2a3344; border-radius:10px; color:#e5e7eb; padding:9px 12px; font-family:inherit; font-size:14px; }
+.kig-file-row { display:flex; align-items:center; gap:10px; margin:0 0 14px; flex-wrap:wrap; }
+.kig-file-label { display:inline-flex; align-items:center; gap:6px; background:#1f2737; border:1px solid #3b4860; color:#cbd5e1; padding:10px 16px; border-radius:10px; cursor:pointer; font-size:13px; transition:background .15s; }
+.kig-file-label:hover { background:#273044; }
+.kig-file-name { font-size:12.5px; color:#94a3b8; }
+.kig-file-hint { font-size:11px; color:#64748b; width:100%; }
+.kig-produk-prev { height:38px; width:38px; object-fit:cover; border-radius:8px; border:1px solid #3b4860; display:none; }
 .kig-btn { width:100%; background:#ec4899; color:#fff; border:none; font-family:inherit; font-weight:700; font-size:15px; padding:13px 16px; border-radius:10px; cursor:pointer; transition:background .15s; }
 .kig-btn:hover { background:#db2777; }
 .kig-btn:disabled { opacity:.6; cursor:default; }
@@ -86,7 +98,17 @@ html, body { background:#0f1420 !important; }
 <script>
 (function () {
   var BACKEND_URL = "https://arapaza-ai-agent.hf.space";
+  var produkB64="", produkMime="", produkDataUrl="";
   function esc(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+  document.getElementById("kig-produk").addEventListener("change", function(e){
+    var f=e.target.files[0], nameEl=document.getElementById("kig-produk-name"), prev=document.getElementById("kig-produk-prev");
+    if(!f){ produkB64=""; produkMime=""; produkDataUrl=""; nameEl.textContent=""; prev.style.display="none"; return; }
+    produkMime=f.type||"image/png"; nameEl.textContent="📎 "+f.name;
+    var reader=new FileReader();
+    reader.onload=function(){ produkDataUrl=(reader.result||"").toString(); produkB64=produkDataUrl.split(",")[1]||""; prev.src=produkDataUrl; prev.style.display="inline-block"; };
+    reader.readAsDataURL(f);
+  });
   function zoneOf(p){ p=(p||"tengah").toLowerCase(); return p.indexOf("atas")===0?"top":(p.indexOf("bawah")===0?"bot":"mid"); }
   function szClass(u){ u=(u||"sedang").toLowerCase(); return u.indexOf("besar")===0?"kig-sz-besar":(u.indexOf("kecil")===0?"kig-sz-kecil":"kig-sz-sedang"); }
   function alignOf(a){ a=(a||"kiri").toLowerCase(); return a.indexOf("tengah")===0?"center":(a.indexOf("kanan")===0?"right":"left"); }
@@ -97,8 +119,9 @@ html, body { background:#0f1420 !important; }
     return "background:#111827;";
   }
   function bgImgSrc(s){
-    if (s.bg_tipe==="aset" && s.bg_aset_url) return s.bg_aset_url;
     if (s.bg_generate_b64) return "data:image/png;base64,"+s.bg_generate_b64;
+    if (s.bg_pakai_produk && produkDataUrl) return produkDataUrl;
+    if (s.bg_tipe==="aset" && s.bg_aset_url) return s.bg_aset_url;
     return "";
   }
 
@@ -112,7 +135,8 @@ html, body { background:#0f1420 !important; }
     var bg = src ? '<div class="kig-bg"><img crossorigin="anonymous" src="'+src+'"></div>'
                  : '<div class="kig-bg" style="'+bgStyle(s)+'"></div>';
     var ov = s.overlay ? '<div class="kig-overlay"></div>' : '';
-    var tempel = s.aset_tempel_url ? '<img class="kig-tempel" crossorigin="anonymous" src="'+s.aset_tempel_url+'">' : '';
+    var tempelSrc = (s.tempel_pakai_produk && produkDataUrl) ? produkDataUrl : (s.aset_tempel_url || "");
+    var tempel = tempelSrc ? '<img class="kig-tempel" crossorigin="anonymous" src="'+tempelSrc+'">' : '';
     return '<div class="kig-slide" id="slide-'+i+'">'+bg+ov
       + '<div class="kig-zone top">'+zones.top.join("")+'</div>'
       + tempel
@@ -149,14 +173,15 @@ html, body { background:#0f1420 !important; }
     st.textContent="Agent bekerja (detailing → layouting → checker → checker visual)... ± 1-2 menit.";
     slidesEl.innerHTML=""; extraEl.innerHTML="";
 
-    fetch(BACKEND_URL+"/konten-ig",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({brief:brief,jumlah:jumlah})})
+    fetch(BACKEND_URL+"/konten-ig",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({brief:brief,jumlah:jumlah,produk_base64:produkB64,produk_mime:produkMime})})
     .then(function(r){ if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); })
     .then(function(data){
       st.textContent="";
       var slides=data.slides||[];
-      var info='<div class="kig-info">📦 Aset ditemukan: <b>'+data.jumlah_aset+'</b> · 🎨 Referensi: <b>'+data.jumlah_referensi
-        +'</b> · 🖼️ Generative AI: <b>'+(data.generative_aktif?"aktif":"nonaktif (template only)")+'</b>'
-        +(data.jumlah_aset===0?'<br>⚠️ Belum ada aset di folder GitHub — slide pakai warna/gradient. Lihat CARA-UPLOAD-GAMBAR.md.':'')
+      var info='<div class="kig-info">📦 Aset GitHub: <b>'+data.jumlah_aset+'</b> · 🎨 Referensi: <b>'+data.jumlah_referensi
+        +'</b> · 🧷 Foto produk: <b>'+(data.ada_produk?"terlampir":"tidak")+'</b> · 🖼️ Generative AI: <b>'+(data.generative_aktif?"aktif":"nonaktif (template only)")+'</b>'
+        +((data.jumlah_aset===0 && !data.ada_produk)?'<br>⚠️ Belum ada aset & foto produk — slide pakai warna/gradient. Upload aset ke GitHub atau lampirkan foto produk.':'')
+        +(data.ada_produk && !data.generative_aktif?'<br>ℹ️ Generative belum aktif — foto produk ditempel langsung ke layout (tidak diolah AI). Aktifkan via Secret GEMINI_IMAGE_MODEL untuk hasil generate.':'')
         +'</div>';
       if(!slides.length){ extraEl.innerHTML=info+'<div class="kig-info">Tidak ada slide dihasilkan. Coba perjelas brief.</div>'; return; }
 
