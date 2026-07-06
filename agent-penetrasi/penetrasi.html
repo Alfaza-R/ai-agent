@@ -83,7 +83,8 @@ html, body { background:#0f1420 !important; }
 .pen-check:hover { border-color:#5b4a8a; }
 .pen-check input { margin-top:3px; width:16px; height:16px; accent-color:#8b5cf6; flex-shrink:0; cursor:pointer; }
 .pen-check.on { border-color:#8b5cf6; background:#1a1730; }
-.pen-check-txt b { color:#e2e8f0; font-size:14px; }
+.pen-check-txt { flex:1 1 auto; min-width:0; word-break:normal; overflow-wrap:anywhere; }
+.pen-check-txt b { display:block; color:#e2e8f0; font-size:14px; }
 .pen-check-txt span { display:block; color:#94a3b8; font-size:12.5px; line-height:1.5; margin-top:2px; }
 .pen-reco-other { width:100%; margin-top:2px; background:#0f1420; border:1px solid #2a3344; border-radius:10px; color:#e5e7eb; padding:10px 13px; font-family:inherit; font-size:13.5px; }
 .pen-reco-other:focus { outline:none; border-color:#8b5cf6; }
