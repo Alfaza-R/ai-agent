@@ -1,0 +1,46 @@
+# AI Agents — Peta Proyek & Struktur Folder
+
+Kumpulan AI agent (backend FastAPI di Hugging Face Spaces + integrasi WordPress/Google Sheet).
+
+## 📁 Struktur folder
+
+```
+ai-agent/
+├── main.py                     ← backend (semua endpoint + CORS) — JANGAN dipindah
+├── mesin_agent.py              ← mesin Content Planner        ┐
+├── mesin_brief_checker.py      ← mesin Brief Checker          │ file inti,
+├── mesin_seo.py                ← mesin SEO Checker            │ dipanggil main.py,
+├── mesin_bms.py                ← mesin BMS                    │ harus tetap di root
+├── Dockerfile, requirements.txt, README.md                   ┘ (dipakai deploy HF)
+│
+├── agent-content-planner/      📝 dokumentasi Content Planner + Brief Checker
+├── agent-seo/                  🔎 dokumentasi SEO + Apps Script + app password
+├── agent-bms/                  🏢 dokumentasi BMS + bms.html (frontend)
+├── dashboard/                  📊 dokumentasi + dashboard.html (frontend hub)
+└── _arsip-latihan/             🗑️ file latihan lama (tidak dipakai)
+```
+
+> **Kenapa file `.py` inti tetap di root?** `main.py` meng-`import` semua `mesin_*.py`, dan Hugging Face menjalankan semuanya dari root. Kalau dipindah ke subfolder, backend gagal jalan.
+
+## Backend (Hugging Face Space: `arapaza/ai-agent`)
+- URL: `https://arapaza-ai-agent.hf.space`
+- Deploy: `git push hf main` → Space rebuild otomatis.
+- Secret di Space: `GEMINI_API_KEY`, `CLOUDCONVERT_API_KEY`.
+
+## Daftar Agent & Endpoint
+| Agent | File backend | Endpoint | Dipakai di | Dokumentasi |
+|---|---|---|---|---|
+| Content Planner (brief) | `mesin_agent.py` | `POST /buat-brief` | Plugin WP intern-dashboard | [agent-content-planner/](agent-content-planner/agent-content-planner.md) |
+| Brief Checker | `mesin_brief_checker.py` | (nempel di /buat-brief) | otomatis saat generate brief | [agent-content-planner/](agent-content-planner/agent-brief-checker.md) |
+| SEO Checker (Yoast) | `mesin_seo.py` | `POST /cek-seo` | Apps Script generator | [agent-seo/](agent-seo/agent-seo-checker.md) |
+| Article + SEO Generator | Apps Script (`agent-seo/appscript-baru.txt`) | — (di Google Sheet) | Google Spreadsheet | [agent-seo/](agent-seo/agent-seo-generator.md) |
+| BMS Sales Assistant | `mesin_bms.py` | `POST /bms-sales` | `agent-bms/bms.html` | [agent-bms/](agent-bms/agent-bms.md) |
+| Dashboard (hub) | — | — | `dashboard/dashboard.html` | [dashboard/](dashboard/dashboard.md) |
+
+## Cara update singkat
+- **Backend berubah** → `git add -A && git commit -m "..." && git push origin main && git push hf main` → tunggu Space Running.
+- **Frontend** → re-paste isi `agent-bms/bms.html` atau `dashboard/dashboard.html` ke widget HTML Elementor → Update → Ctrl+F5.
+- **Apps Script** → salin `agent-seo/appscript-baru.txt` ke editor Apps Script → Save.
+
+## Catatan keamanan (belum dikerjakan)
+Kredensial yang pernah ter-expose sebaiknya dirotate: `GEMINI_API_KEY`, 9 App Password WordPress, `CLOUDCONVERT_API_KEY`. File rahasia (`agent-seo/appscript-baru.txt`, `agent-seo/appscriptsheetlama.txt`, `agent-seo/App Password web baru.txt`) sudah di-`.gitignore`. **`_arsip-latihan/API Key.txt` masih ke-track di git history → rotasi key-nya.**
