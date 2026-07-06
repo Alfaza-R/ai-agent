@@ -3,6 +3,8 @@
      Halaman terpisah, diakses dari kartu di dashboard AI agent.
      ============================================================ -->
 <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
 <div id="bms">
   <div class="bms-head">
     <h2 class="bms-title">🏢 BMS Sales Assistant</h2>
@@ -61,7 +63,18 @@ html, body { background:#0f1420 !important; }
 .bms-steps summary { cursor:pointer; color:#93c5fd; font-size:13px; font-weight:600; padding:10px 0; list-style:revert; }
 .bms-steps[open] summary { margin-bottom:4px; }
 .bms-steps .bms-out { margin-top:12px; }
-.bms-out-body { white-space:pre-wrap; font-size:14px; line-height:1.7; color:#cbd5e1; }
+.bms-out-body { font-size:14px; line-height:1.7; color:#cbd5e1; overflow-x:auto; }
+.bms-out-body h1,.bms-out-body h2,.bms-out-body h3,.bms-out-body h4 { color:#e2e8f0; margin:12px 0 6px; line-height:1.3; }
+.bms-out-body h1 { font-size:17px; } .bms-out-body h2 { font-size:15px; } .bms-out-body h3,.bms-out-body h4 { font-size:13.5px; }
+.bms-out-body p { margin:0 0 8px; }
+.bms-out-body ul,.bms-out-body ol { margin:4px 0 8px; padding-left:20px; }
+.bms-out-body li { margin-bottom:3px; }
+.bms-out-body strong { color:#f1f5f9; font-weight:700; }
+.bms-out-body code { background:#0f1420; padding:1px 5px; border-radius:5px; font-size:12.5px; }
+.bms-out-body hr { border:none; border-top:1px solid #273044; margin:12px 0; }
+.bms-out-body table { border-collapse:collapse; width:100%; margin:8px 0; font-size:12.5px; }
+.bms-out-body th,.bms-out-body td { border:1px solid #2a3344; padding:6px 9px; text-align:left; vertical-align:top; }
+.bms-out-body th { background:#1f2737; color:#e2e8f0; font-weight:700; }
 .bms-copy { float:right; background:#1f2737; border:1px solid #3b4860; color:#cbd5e1; font-size:11px; padding:4px 10px; border-radius:7px; cursor:pointer; }
 .bms-copy:hover { background:#273044; }
 </style>
@@ -72,6 +85,18 @@ html, body { background:#0f1420 !important; }
   var imgB64 = "", imgMime = "";
 
   function esc(s) { return (s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+  // Markdown -> HTML (bold, heading, tabel, list). Disanitasi biar aman.
+  function md(s) {
+    s = s || "-";
+    try {
+      if (typeof marked !== "undefined") {
+        var html = marked.parse(s, { breaks: true, gfm: true });
+        return (typeof DOMPurify !== "undefined") ? DOMPurify.sanitize(html) : html;
+      }
+    } catch (e) {}
+    return esc(s).replace(/\n/g, "<br>");
+  }
 
   var _flowN = 0;
   function renderFlow(code) {
@@ -124,7 +149,7 @@ html, body { background:#0f1420 !important; }
       function card(title, body, cls, copyKey) {
         var c = copyKey ? '<button class="bms-copy" data-copy="' + copyKey + '" type="button">Salin</button>' : '';
         return '<div class="bms-out ' + (cls || '') + '">' + c +
-               '<div class="bms-out-title">' + title + '</div><div class="bms-out-body">' + esc(body || '-') + '</div></div>';
+               '<div class="bms-out-title">' + title + '</div><div class="bms-out-body">' + md(body || '-') + '</div></div>';
       }
       var inkon = data.inkonsistensi || [], tanya = data.pertanyaan_klarifikasi || [];
       var checkerBody = (data.info_terverifikasi || '-')
@@ -144,10 +169,11 @@ html, body { background:#0f1420 !important; }
         '</details>';
 
       if (!data.konversi_error) statusEl.textContent = "";
-      var texts = { awam: data.output_awam || "", tech: data.output_technical || "" };
       resEl.querySelectorAll(".bms-copy").forEach(function (b) {
         b.addEventListener("click", function () {
-          navigator.clipboard.writeText(texts[b.getAttribute("data-copy")] || "").then(function () {
+          var body = b.parentElement.querySelector(".bms-out-body");
+          var t = body ? (body.innerText || body.textContent || "") : "";
+          navigator.clipboard.writeText(t).then(function () {
             b.textContent = "✓ Tersalin"; setTimeout(function () { b.textContent = "Salin"; }, 1500);
           });
         });
