@@ -54,6 +54,7 @@ html, body { background: #0f1420 !important; }
   var LINK_BMS              = "https://eknowledge.taharica.com/ai-agent-bms/";
   var LINK_PENETRASI        = "https://eknowledge.taharica.com/agent-penetrasi/";
   var LINK_KONTEN_IG        = "https://eknowledge.taharica.com/agent-content/";
+  var LINK_HOBO             = "GANTI_DENGAN_URL_HALAMAN_HOBO"; // mis. https://eknowledge.taharica.com/agent-hobo/
 
   // ===== Daftar agent =====
   var AGENTS = [
@@ -98,6 +99,13 @@ html, body { background: #0f1420 !important; }
       desc:"Tulis brief → 4 agent (detailing, layouting, checker, checker visual) menyusun 1-5 slide konten IG format 4:5 siap-unduh. Aset & referensi diambil dari folder GitHub-mu.",
       live:true,
       btn:{ text:"Buka Konten Generator", url:LINK_KONTEN_IG },
+    },
+    {
+      icon:"🌡️", bg:"rgba(14,165,233,.16)",
+      nama:"HOBO Data Logger Assistant",
+      desc:"Sales & service produk HOBO (Onset) data logger. Tempel chat customer → agent analisa kebutuhan, rekomendasi produk HOBO (cek onsetcomp.com & loggerindo.com), setup teknis, dan info service.",
+      live:true,
+      btn:{ text:"Buka HOBO Assistant", url:LINK_HOBO },
     },
   ];
 

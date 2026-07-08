@@ -6,6 +6,7 @@ from mesin_seo import cek_seo        # mesin cek SEO/readability ala Yoast
 from mesin_bms import analisa_bms    # asisten sales Building Management System
 from mesin_penetrasi import analisa_penetrasi, rekomendasi_target  # sistem multi-agent penetrasi pasar
 from mesin_konten_ig import buat_konten_ig  # multi-agent konten Instagram 4:5
+from mesin_hobo import analisa_hobo    # asisten sales & service HOBO data logger
 
 # Bikin aplikasi backend-nya
 app = FastAPI()
@@ -118,3 +119,13 @@ class PesananKontenIG(BaseModel):
 @app.post("/konten-ig")
 def endpoint_konten_ig(pesanan: PesananKontenIG):
     return buat_konten_ig(pesanan.brief, pesanan.jumlah, pesanan.produk_base64, pesanan.produk_mime)
+
+# Pesanan asisten sales & service HOBO data logger (chat customer + file opsional)
+class PesananHOBO(BaseModel):
+    chat: str = ""
+    image_base64: str = ""
+    image_mime: str = "image/png"
+
+@app.post("/hobo-sales")
+def endpoint_hobo_sales(pesanan: PesananHOBO):
+    return analisa_hobo(pesanan.chat, pesanan.image_base64, pesanan.image_mime)

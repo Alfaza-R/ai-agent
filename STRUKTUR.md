@@ -13,6 +13,7 @@ ai-agent/
 ├── mesin_bms.py                ← mesin BMS                    │ harus tetap di root
 ├── mesin_penetrasi.py          ← mesin Market Penetration     │ (dipakai deploy HF)
 ├── mesin_konten_ig.py          ← mesin Konten Instagram 4:5   │
+├── mesin_hobo.py               ← mesin HOBO data logger       │
 ├── Dockerfile, requirements.txt, README.md                   ┘
 │
 ├── agent-content-planner/      📝 dokumentasi Content Planner + Brief Checker
@@ -20,6 +21,7 @@ ai-agent/
 ├── agent-bms/                  🏢 dokumentasi BMS + bms.html (frontend)
 ├── agent-penetrasi/            🚀 dokumentasi Market Penetration + penetrasi.html
 ├── agent-konten-ig/            🎨 Konten IG 4:5 + konten-ig.html + folder aset/ & referensi/
+├── agent-hobo/                 🌡️ HOBO data logger + hobo.html
 ├── dashboard/                  📊 dokumentasi + dashboard.html (frontend hub)
 └── _arsip-latihan/             🗑️ file latihan lama (tidak dipakai)
 ```
@@ -41,6 +43,7 @@ ai-agent/
 | BMS Sales Assistant | `mesin_bms.py` | `POST /bms-sales` | `agent-bms/bms.html` | [agent-bms/](agent-bms/agent-bms.md) |
 | Market Penetration | `mesin_penetrasi.py` | `POST /penetrasi-market` | `agent-penetrasi/penetrasi.html` | [agent-penetrasi/](agent-penetrasi/agent-penetrasi.md) |
 | Konten Instagram 4:5 | `mesin_konten_ig.py` | `POST /konten-ig` | `agent-konten-ig/konten-ig.html` | [agent-konten-ig/](agent-konten-ig/agent-konten-ig.md) |
+| HOBO Data Logger | `mesin_hobo.py` | `POST /hobo-sales` | `agent-hobo/hobo.html` | [agent-hobo/](agent-hobo/agent-hobo.md) |
 | Dashboard (hub) | — | — | `dashboard/dashboard.html` | [dashboard/](dashboard/dashboard.md) |
 
 ## Cara update singkat
