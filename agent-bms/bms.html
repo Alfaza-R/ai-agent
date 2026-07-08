@@ -93,12 +93,12 @@ html, body {
 .typing span:nth-child(2){ animation-delay:.2s; } .typing span:nth-child(3){ animation-delay:.4s; }
 @keyframes bmsblink { 0%,80%,100%{ opacity:.2; } 40%{ opacity:1; } }
 
-.bms-inputbar { display:flex; align-items:flex-end; gap:8px; margin-top:12px; background:rgba(22,28,42,.65); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); border:1px solid rgba(59,72,96,.5); border-radius:14px; padding:8px; }
-.bms-file-label { flex-shrink:0; display:flex; align-items:center; justify-content:center; width:40px; height:40px; background:#1f2737; border:1px solid #3b4860; border-radius:10px; cursor:pointer; font-size:16px; }
+.bms-inputbar { display:flex; align-items:flex-end; gap:7px; margin-top:12px; background:rgba(22,28,42,.65); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); border:1px solid rgba(59,72,96,.5); border-radius:12px; padding:5px; }
+.bms-file-label { flex-shrink:0; display:flex; align-items:center; justify-content:center; width:34px; height:34px; background:#1f2737; border:1px solid #3b4860; border-radius:9px; cursor:pointer; font-size:14px; }
 .bms-file-label:hover { background:#273044; }
-#bms-chat-input { flex:1; min-height:40px; max-height:140px; background:transparent; border:none; color:#e5e7eb; padding:10px 6px; font-family:inherit; font-size:14px; line-height:1.5; resize:none; }
+#bms-chat-input { flex:1; height:34px; min-height:34px; max-height:120px; background:transparent; border:none; color:#e5e7eb; padding:7px 6px; font-family:inherit; font-size:13.5px; line-height:1.35; resize:none; }
 #bms-chat-input:focus { outline:none; }
-.bms-send { flex-shrink:0; width:40px; height:40px; background:#3b82f6; color:#fff; border:none; border-radius:10px; cursor:pointer; font-size:16px; transition:background .15s; }
+.bms-send { flex-shrink:0; width:34px; height:34px; background:#3b82f6; color:#fff; border:none; border-radius:9px; cursor:pointer; font-size:14px; transition:background .15s; }
 .bms-send:hover { background:#2563eb; }
 .bms-send:disabled { opacity:.5; cursor:default; }
 .bms-file-chip { font-size:12px; color:#94a3b8; margin-top:6px; min-height:0; }
@@ -269,7 +269,7 @@ html, body {
     convo.push({ role:"cust", text: text + (imgName?" [lampiran: "+imgName+"]":"") });
 
     var payload={ chat:text, image_base64:imgB64, image_mime:imgMime, riwayat:riwayat };
-    inputEl.value=""; inputEl.style.height="40px"; clearAttach();
+    inputEl.value=""; inputEl.style.height="34px"; clearAttach();
     sendBtn.disabled=true; statusEl.textContent="Agent menganalisa... (bisa 20-60 detik)";
     var typing=addBubble("agent",'<div class="typing"><span></span><span></span><span></span></div>');
 
@@ -294,7 +294,7 @@ html, body {
   inputEl.addEventListener("keydown", function(e){
     if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); send(); }
   });
-  inputEl.addEventListener("input", function(){ inputEl.style.height="40px"; inputEl.style.height=Math.min(inputEl.scrollHeight,140)+"px"; });
+  inputEl.addEventListener("input", function(){ inputEl.style.height="34px"; inputEl.style.height=Math.min(inputEl.scrollHeight,120)+"px"; });
 
   document.getElementById("bms-reset").addEventListener("click", function(){
     if(!convo.length){ return; }
