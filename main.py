@@ -63,11 +63,12 @@ class PesananBMS(BaseModel):
     chat: str = ""
     image_base64: str = ""         # gambar CAD dalam base64 (opsional)
     image_mime: str = "image/png"  # mis. image/png, image/jpeg
+    riwayat: str = ""              # transkrip percakapan sebelumnya (untuk chat lanjutan)
 
 # Loket asisten sales BMS: balikin informasi permintaan + rekomendasi respond
 @app.post("/bms-sales")
 def endpoint_bms_sales(pesanan: PesananBMS):
-    return analisa_bms(pesanan.chat, pesanan.image_base64, pesanan.image_mime)
+    return analisa_bms(pesanan.chat, pesanan.image_base64, pesanan.image_mime, pesanan.riwayat)
 
 # Pesanan untuk sistem multi-agent penetrasi pasar (form terstruktur)
 class PesananPenetrasi(BaseModel):

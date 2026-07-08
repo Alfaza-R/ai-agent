@@ -10,9 +10,11 @@ Bantu sales Building Management System memahami permintaan customer (teks + gamb
 
 ## Input (JSON)
 ```json
-{ "chat":"...teks chat customer...", "image_base64":"...", "image_mime":"image/png | application/pdf | ..." }
+{ "chat":"...pesan customer terbaru...", "image_base64":"...", "image_mime":"image/png | application/pdf | ...",
+  "riwayat":"transkrip percakapan sebelumnya (opsional, untuk chat lanjutan)" }
 ```
 - File DWG → dikonversi ke PDF dulu via **CloudConvert** (`_dwg_to_pdf_cloudconvert`), karena Gemini tidak bisa baca DWG mentah.
+- **Chat mode (multi-turn):** frontend `bms.html` kini antarmuka chat (bubble). Tiap kirim, frontend menyertakan `riwayat` (transkrip turn sebelumnya) supaya balasan nyambung. `output_awam` = bubble balasan agent; `output_technical` + kartu per-agent + flow tampil di panel "Detail kerja tiap agent" (balasan terbaru).
 
 ## Pipeline (urutan)
 1. **🅰️ Reader Teks** (`_agent_reader_teks`) — ekstrak info dari chat.

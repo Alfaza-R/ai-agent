@@ -1,6 +1,7 @@
 <!-- ============================================================
-     BMS SALES ASSISTANT — halaman tool (tempel ke Elementor: widget HTML)
-     Halaman terpisah, diakses dari kartu di dashboard AI agent.
+     BMS SALES ASSISTANT — CHAT MODE (tempel ke Elementor: widget HTML)
+     User ngobrol seperti chat; agent balas bubble; percakapan bisa dilanjut.
+     Detail kerja tiap agent tampil di bawah (per balasan terbaru).
      ============================================================ -->
 <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
@@ -8,182 +9,232 @@
 <div id="bms">
   <div class="bms-head">
     <h2 class="bms-title">🏢 BMS Sales Assistant</h2>
-    <p class="bms-sub">Tempel chat customer (+ gambar CAD bila ada). Agent akan menerjemahkan permintaan teknis & memberi rekomendasi balasan untuk sales.</p>
+    <p class="bms-sub">Tempel chat customer. Agent membalas seperti percakapan & bisa dilanjutkan. Detail kerja tiap agent ada di bawah.</p>
   </div>
 
-  <div class="bms-panel">
-    <label class="bms-label">Chat / Permintaan Customer</label>
-    <textarea id="bms-chat" placeholder="Tempel chat atau permintaan customer di sini..."></textarea>
-
-    <div class="bms-file-row">
-      <label class="bms-file-label">📎 Lampirkan CAD (DWG / PDF / Gambar)<input type="file" id="bms-image" accept="image/*,application/pdf,.pdf,.dwg" hidden></label>
-      <span id="bms-file-name" class="bms-file-name"></span>
-      <span class="bms-file-hint">DWG dikonversi otomatis (drawing sangat kompleks/versi baru kadang kurang akurat).</span>
-    </div>
-
-    <button id="bms-submit" class="bms-btn" type="button">✨ Analisa Permintaan</button>
-    <div id="bms-status" class="bms-status"></div>
+  <div id="bms-chat" class="bms-chat">
+    <div class="bubble sys">💬 Mulai dengan menempel chat / permintaan customer di bawah.</div>
   </div>
 
-  <div id="bms-result" class="bms-result"></div>
+  <div class="bms-inputbar">
+    <label class="bms-file-label" title="Lampirkan CAD/PDF/Gambar">📎<input type="file" id="bms-image" accept="image/*,application/pdf,.pdf,.dwg" hidden></label>
+    <textarea id="bms-chat-input" rows="1" placeholder="Ketik / tempel chat customer... (Enter = kirim, Shift+Enter = baris baru)"></textarea>
+    <button id="bms-send" class="bms-send" type="button" title="Kirim">➤</button>
+  </div>
+  <div id="bms-file-chip" class="bms-file-chip"></div>
+  <div id="bms-status" class="bms-status"></div>
+
+  <div class="bms-actions">
+    <button id="bms-reset" class="bms-reset" type="button">🗑️ Mulai percakapan baru</button>
+  </div>
+
+  <details id="bms-detail-wrap" class="bms-steps" style="display:none;">
+    <summary>🔍 Detail kerja tiap agent (balasan terbaru)</summary>
+    <div id="bms-detail"></div>
+  </details>
 </div>
 
 <style>
 html, body { background:#0f1420 !important; }
 #bms { font-family:'Poppins', system-ui, sans-serif; max-width:820px; margin:0 auto; color:#e5e7eb; padding:28px 20px; }
 #bms * { box-sizing:border-box; }
-.bms-head { margin-bottom:20px; }
-.bms-title { font-size:26px; font-weight:800; margin:0; color:#f8fafc; }
-.bms-sub { margin:6px 0 0; color:#94a3b8; font-size:14px; line-height:1.6; }
-.bms-panel { background:#161c2a; border:1px solid #273044; border-radius:16px; padding:22px; }
-.bms-label { display:block; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:#94a3b8; margin-bottom:8px; }
-#bms-chat { width:100%; min-height:150px; background:#0f1420; border:1px solid #2a3344; border-radius:10px; color:#e5e7eb; padding:13px; font-family:inherit; font-size:14px; line-height:1.6; resize:vertical; }
-#bms-chat:focus { outline:none; border-color:#3b82f6; }
-.bms-file-row { display:flex; align-items:center; gap:10px; margin:14px 0; flex-wrap:wrap; }
-.bms-file-label { display:inline-flex; align-items:center; gap:6px; background:#1f2737; border:1px solid #3b4860; color:#cbd5e1; padding:10px 16px; border-radius:10px; cursor:pointer; font-size:13px; transition:background .15s; }
+.bms-head { margin-bottom:16px; }
+.bms-title { font-size:24px; font-weight:800; margin:0; color:#f8fafc; }
+.bms-sub { margin:6px 0 0; color:#94a3b8; font-size:13.5px; line-height:1.6; }
+
+.bms-chat { display:flex; flex-direction:column; gap:10px; height:440px; overflow-y:auto; padding:16px; background:#0f1420; border:1px solid #273044; border-radius:14px; }
+.bubble { max-width:84%; padding:11px 14px; border-radius:14px; font-size:14px; line-height:1.65; word-wrap:break-word; }
+.bubble.cust { align-self:flex-end; background:#1d4ed8; color:#fff; border-bottom-right-radius:4px; }
+.bubble.agent { align-self:flex-start; background:#1b2233; border:1px solid #2a3344; color:#e5e7eb; border-bottom-left-radius:4px; }
+.bubble.sys { align-self:center; background:transparent; color:#94a3b8; font-size:12.5px; text-align:center; max-width:100%; }
+.bubble.err { align-self:center; color:#fca5a5; font-size:12.5px; }
+.bubble img.att { max-width:180px; border-radius:8px; margin-top:8px; display:block; }
+.bubble .role { font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; opacity:.7; margin-bottom:3px; }
+.bubble.agent p { margin:0 0 7px; } .bubble.agent p:last-child { margin-bottom:0; }
+.bubble.agent ul,.bubble.agent ol { margin:4px 0 7px; padding-left:18px; }
+.bubble.agent strong { color:#fff; font-weight:700; }
+.bubble.agent h1,.bubble.agent h2,.bubble.agent h3 { font-size:14.5px; margin:8px 0 4px; color:#f1f5f9; }
+.bubble.agent table { border-collapse:collapse; width:100%; margin:6px 0; font-size:12px; }
+.bubble.agent th,.bubble.agent td { border:1px solid #2a3344; padding:5px 8px; text-align:left; }
+.bubble .tech-toggle { display:inline-block; margin-top:8px; font-size:12px; color:#93c5fd; cursor:pointer; border:1px solid #2a3344; padding:3px 9px; border-radius:7px; }
+.bubble .tech-box { margin-top:8px; padding-top:8px; border-top:1px dashed #2a3344; font-size:13px; color:#cbd5e1; display:none; }
+.bubble .tech-box.on { display:block; }
+.typing span { display:inline-block; width:7px; height:7px; margin:0 1px; background:#64748b; border-radius:50%; animation:bmsblink 1.2s infinite both; }
+.typing span:nth-child(2){ animation-delay:.2s; } .typing span:nth-child(3){ animation-delay:.4s; }
+@keyframes bmsblink { 0%,80%,100%{ opacity:.2; } 40%{ opacity:1; } }
+
+.bms-inputbar { display:flex; align-items:flex-end; gap:8px; margin-top:12px; background:#161c2a; border:1px solid #273044; border-radius:14px; padding:8px; }
+.bms-file-label { flex-shrink:0; display:flex; align-items:center; justify-content:center; width:40px; height:40px; background:#1f2737; border:1px solid #3b4860; border-radius:10px; cursor:pointer; font-size:16px; }
 .bms-file-label:hover { background:#273044; }
-.bms-file-name { font-size:12.5px; color:#94a3b8; }
-.bms-file-hint { font-size:11px; color:#64748b; width:100%; }
-.bms-btn { width:100%; background:#3b82f6; color:#fff; border:none; font-family:inherit; font-weight:700; font-size:15px; padding:13px 16px; border-radius:10px; cursor:pointer; transition:background .15s; }
-.bms-btn:hover { background:#2563eb; }
-.bms-btn:disabled { opacity:.6; cursor:default; }
-.bms-status { font-size:13px; color:#fcd34d; margin-top:12px; text-align:center; }
-.bms-result { margin-top:18px; display:flex; flex-direction:column; gap:14px; }
-.bms-out { background:#161c2a; border:1px solid #273044; border-radius:14px; padding:18px 20px; }
-.bms-out-title { font-weight:700; font-size:14px; color:#93c5fd; margin-bottom:10px; }
-.bms-out.rec .bms-out-title { color:#86efac; }
+#bms-chat-input { flex:1; min-height:40px; max-height:140px; background:transparent; border:none; color:#e5e7eb; padding:10px 6px; font-family:inherit; font-size:14px; line-height:1.5; resize:none; }
+#bms-chat-input:focus { outline:none; }
+.bms-send { flex-shrink:0; width:40px; height:40px; background:#3b82f6; color:#fff; border:none; border-radius:10px; cursor:pointer; font-size:16px; transition:background .15s; }
+.bms-send:hover { background:#2563eb; }
+.bms-send:disabled { opacity:.5; cursor:default; }
+.bms-file-chip { font-size:12px; color:#94a3b8; margin-top:6px; min-height:0; }
+.bms-file-chip b { color:#cbd5e1; }
+.bms-file-chip a { color:#fca5a5; cursor:pointer; margin-left:6px; }
+.bms-status { font-size:12.5px; color:#fcd34d; margin-top:8px; text-align:center; }
+.bms-actions { margin-top:10px; text-align:right; }
+.bms-reset { background:transparent; border:1px solid #3b4860; color:#94a3b8; font-family:inherit; font-size:12px; padding:6px 12px; border-radius:8px; cursor:pointer; }
+.bms-reset:hover { background:#1f2737; color:#cbd5e1; }
+
+.bms-steps { margin-top:14px; }
+.bms-steps summary { cursor:pointer; color:#93c5fd; font-size:13px; font-weight:600; padding:10px 0; list-style:revert; }
+.bms-out { background:#161c2a; border:1px solid #273044; border-radius:12px; padding:16px 18px; margin-top:10px; }
+.bms-out-title { font-weight:700; font-size:13.5px; color:#93c5fd; margin-bottom:8px; }
 .bms-out.tech .bms-out-title { color:#c4b5fd; }
-.bms-out.warn { border-color:#7c5e1e; }
-.bms-out.warn .bms-out-title { color:#fcd34d; }
+.bms-out.warn { border-color:#7c5e1e; } .bms-out.warn .bms-out-title { color:#fcd34d; }
 .bms-out.step .bms-out-title { color:#94a3b8; }
 .bms-out.flow .bms-out-title { color:#5eead4; }
 .flow-box { background:#0f1420; border:1px solid #273044; border-radius:10px; padding:14px; overflow-x:auto; text-align:center; }
 .flow-box svg { max-width:100%; height:auto; }
-.bms-steps { margin-top:4px; }
-.bms-steps summary { cursor:pointer; color:#93c5fd; font-size:13px; font-weight:600; padding:10px 0; list-style:revert; }
-.bms-steps[open] summary { margin-bottom:4px; }
-.bms-steps .bms-out { margin-top:12px; }
-.bms-out-body { font-size:14px; line-height:1.7; color:#cbd5e1; overflow-x:auto; }
-.bms-out-body h1,.bms-out-body h2,.bms-out-body h3,.bms-out-body h4 { color:#e2e8f0; margin:12px 0 6px; line-height:1.3; }
-.bms-out-body h1 { font-size:17px; } .bms-out-body h2 { font-size:15px; } .bms-out-body h3,.bms-out-body h4 { font-size:13.5px; }
-.bms-out-body p { margin:0 0 8px; }
+.bms-out-body { font-size:13.5px; line-height:1.7; color:#cbd5e1; overflow-x:auto; }
+.bms-out-body h1,.bms-out-body h2,.bms-out-body h3,.bms-out-body h4 { color:#e2e8f0; margin:10px 0 5px; }
+.bms-out-body h1{font-size:16px;} .bms-out-body h2{font-size:14.5px;} .bms-out-body h3{font-size:13.5px;}
 .bms-out-body ul,.bms-out-body ol { margin:4px 0 8px; padding-left:20px; }
-.bms-out-body li { margin-bottom:3px; }
-.bms-out-body strong { color:#f1f5f9; font-weight:700; }
-.bms-out-body code { background:#0f1420; padding:1px 5px; border-radius:5px; font-size:12.5px; }
-.bms-out-body hr { border:none; border-top:1px solid #273044; margin:12px 0; }
+.bms-out-body strong { color:#f1f5f9; }
 .bms-out-body table { border-collapse:collapse; width:100%; margin:8px 0; font-size:12.5px; }
 .bms-out-body th,.bms-out-body td { border:1px solid #2a3344; padding:6px 9px; text-align:left; vertical-align:top; }
-.bms-out-body th { background:#1f2737; color:#e2e8f0; font-weight:700; }
+.bms-out-body th { background:#1f2737; color:#e2e8f0; }
 .bms-copy { float:right; background:#1f2737; border:1px solid #3b4860; color:#cbd5e1; font-size:11px; padding:4px 10px; border-radius:7px; cursor:pointer; }
-.bms-copy:hover { background:#273044; }
 </style>
 
 <script>
 (function () {
   var BACKEND_URL = "https://arapaza-ai-agent.hf.space";
-  var imgB64 = "", imgMime = "";
+  var convo = [];               // [{role:'cust'|'agent', text}]
+  var imgB64 = "", imgMime = "", imgName = "";
+  var flowN = 0;
 
-  function esc(s) { return (s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+  var chatEl   = document.getElementById("bms-chat");
+  var inputEl  = document.getElementById("bms-chat-input");
+  var sendBtn  = document.getElementById("bms-send");
+  var statusEl = document.getElementById("bms-status");
+  var chipEl   = document.getElementById("bms-file-chip");
+  var detailEl = document.getElementById("bms-detail");
+  var detailWrap = document.getElementById("bms-detail-wrap");
 
-  // Markdown -> HTML (bold, heading, tabel, list). Disanitasi biar aman.
-  function md(s) {
+  function esc(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+  function md(s){
     s = s || "-";
-    try {
-      if (typeof marked !== "undefined") {
-        var html = marked.parse(s, { breaks: true, gfm: true });
-        return (typeof DOMPurify !== "undefined") ? DOMPurify.sanitize(html) : html;
-      }
-    } catch (e) {}
-    return esc(s).replace(/\n/g, "<br>");
+    try { if (typeof marked!=="undefined"){ var h=marked.parse(s,{breaks:true,gfm:true}); return (typeof DOMPurify!=="undefined")?DOMPurify.sanitize(h):h; } } catch(e){}
+    return esc(s).replace(/\n/g,"<br>");
+  }
+  function scrollDown(){ chatEl.scrollTop = chatEl.scrollHeight; }
+
+  function addBubble(role, innerHTML){
+    var d = document.createElement("div");
+    d.className = "bubble " + role;
+    d.innerHTML = innerHTML;
+    chatEl.appendChild(d); scrollDown();
+    return d;
   }
 
-  var _flowN = 0;
-  function renderFlow(code) {
-    var box = document.getElementById("flow-box");
+  function buildRiwayat(){
+    return convo.map(function(m){
+      return (m.role==="cust" ? "Customer: " : "Agent (rekomendasi balasan): ") + m.text;
+    }).join("\n");
+  }
+
+  function renderFlow(code, boxId){
+    var box = document.getElementById(boxId);
     if (!box) return;
-    if (typeof mermaid === "undefined") { setTimeout(function () { renderFlow(code); }, 500); return; }
+    if (typeof mermaid==="undefined"){ setTimeout(function(){ renderFlow(code, boxId); },500); return; }
     try {
-      mermaid.initialize({ startOnLoad: false, theme: "dark", securityLevel: "loose" });
-      mermaid.render("flowsvg_" + (++_flowN), code).then(function (r) {
-        box.innerHTML = r.svg;
-      }).catch(function () {
-        box.innerHTML = '<pre style="white-space:pre-wrap;margin:0;">' + esc(code) + '</pre>';
-      });
-    } catch (e) {
-      box.innerHTML = '<pre style="white-space:pre-wrap;margin:0;">' + esc(code) + '</pre>';
-    }
+      mermaid.initialize({ startOnLoad:false, theme:"dark", securityLevel:"loose" });
+      mermaid.render("flowsvg_"+(++flowN), code).then(function(r){ box.innerHTML=r.svg; })
+        .catch(function(){ box.innerHTML='<pre style="white-space:pre-wrap;margin:0;">'+esc(code)+'</pre>'; });
+    } catch(e){ box.innerHTML='<pre style="white-space:pre-wrap;margin:0;">'+esc(code)+'</pre>'; }
   }
 
-  document.getElementById("bms-image").addEventListener("change", function (e) {
-    var f = e.target.files[0];
-    var nameEl = document.getElementById("bms-file-name");
-    if (!f) { imgB64 = ""; imgMime = ""; nameEl.textContent = ""; return; }
-    imgMime = f.type || "image/png";
-    nameEl.textContent = "📎 " + f.name;
-    var reader = new FileReader();
-    reader.onload = function () { imgB64 = (reader.result || "").toString().split(",")[1] || ""; };
-    reader.readAsDataURL(f);
+  function renderDetail(data){
+    function card(title, body, cls){
+      return '<div class="bms-out '+(cls||'')+'"><button class="bms-copy" type="button">Salin</button>'
+        + '<div class="bms-out-title">'+title+'</div><div class="bms-out-body">'+md(body||'-')+'</div></div>';
+    }
+    var inkon=data.inkonsistensi||[], tanya=data.pertanyaan_klarifikasi||[];
+    var checkerBody=(data.info_terverifikasi||'-')
+      +(inkon.length?'\n\n⚠️ Inkonsistensi:\n- '+inkon.join('\n- '):'')
+      +(tanya.length?'\n\n❓ Perlu klarifikasi:\n- '+tanya.join('\n- '):'');
+    var boxId = "flow-box-"+(flowN+1);
+    detailEl.innerHTML =
+      card('🔩 Output Teknis (tim teknik)', data.output_technical, 'tech') +
+      '<div class="bms-out flow"><div class="bms-out-title">🗺️ Skematik Alur Kerja</div><div id="'+boxId+'" class="flow-box">⏳ Merender...</div></div>' +
+      card('🅰️ Reader — Teks', data.reader_teks, 'step') +
+      card('🅱️ Reader — Visual', data.reader_visual, 'step') +
+      card('📦 Product (Azbil)', data.produk, 'step') +
+      card('🔧 Technical (skematik + jumlah)', data.teknis, 'tech') +
+      card('✅ Checker — Koordinator', checkerBody, 'warn');
+    detailWrap.style.display = "block";
+    detailEl.querySelectorAll(".bms-copy").forEach(function(b){
+      b.addEventListener("click", function(){
+        var body=b.parentElement.querySelector(".bms-out-body");
+        var t=body?(body.innerText||body.textContent||""):"";
+        navigator.clipboard.writeText(t).then(function(){ b.textContent="✓"; setTimeout(function(){ b.textContent="Salin"; },1200); });
+      });
+    });
+    if (data.flow_mermaid) renderFlow(data.flow_mermaid, boxId);
+    else { var fb=detailEl.querySelector(".bms-out.flow"); if(fb) fb.style.display="none"; }
+  }
+
+  function clearAttach(){ imgB64=""; imgMime=""; imgName=""; chipEl.innerHTML=""; document.getElementById("bms-image").value=""; }
+
+  document.getElementById("bms-image").addEventListener("change", function(e){
+    var f=e.target.files[0];
+    if(!f){ clearAttach(); return; }
+    imgMime=f.type||"image/png"; imgName=f.name;
+    chipEl.innerHTML='📎 <b>'+esc(f.name)+'</b><a id="bms-att-x">✕ batal</a>';
+    document.getElementById("bms-att-x").addEventListener("click", clearAttach);
+    var r=new FileReader(); r.onload=function(){ imgB64=(r.result||"").toString().split(",")[1]||""; }; r.readAsDataURL(f);
   });
 
-  document.getElementById("bms-submit").addEventListener("click", function () {
-    var chat = document.getElementById("bms-chat").value.trim();
-    if (!chat && !imgB64) { alert("Tempel chat customer atau lampirkan gambar CAD dulu."); return; }
-    var btn = document.getElementById("bms-submit");
-    var statusEl = document.getElementById("bms-status");
-    var resEl = document.getElementById("bms-result");
-    btn.disabled = true; btn.textContent = "⏳ Menganalisa...";
-    statusEl.textContent = "Menganalisa permintaan... (bisa 10-40 detik, mohon tunggu)";
-    resEl.innerHTML = "";
+  function send(){
+    var text=inputEl.value.trim();
+    if(!text && !imgB64){ return; }
 
-    fetch(BACKEND_URL + "/bms-sales", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat: chat, image_base64: imgB64, image_mime: imgMime })
+    // Bubble customer (+ lampiran)
+    var custHtml='<div class="role">Customer</div>'+esc(text).replace(/\n/g,"<br>");
+    if(imgB64) custHtml+='<img class="att" src="data:'+imgMime+';base64,'+imgB64+'">';
+    addBubble("cust", custHtml);
+
+    var riwayat=buildRiwayat();               // percakapan sebelum pesan ini
+    convo.push({ role:"cust", text: text + (imgName?" [lampiran: "+imgName+"]":"") });
+
+    var payload={ chat:text, image_base64:imgB64, image_mime:imgMime, riwayat:riwayat };
+    inputEl.value=""; inputEl.style.height="40px"; clearAttach();
+    sendBtn.disabled=true; statusEl.textContent="Agent menganalisa... (bisa 20-60 detik)";
+    var typing=addBubble("agent",'<div class="typing"><span></span><span></span><span></span></div>');
+
+    fetch(BACKEND_URL+"/bms-sales",{ method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload) })
+    .then(function(r){ if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); })
+    .then(function(data){
+      typing.remove(); statusEl.textContent="";
+      if(data.konversi_error) addBubble("err","⚠️ Konversi DWG gagal: "+esc(data.konversi_error));
+      var awam=data.output_awam||"(tidak ada balasan)";
+      var b=addBubble("agent",'<div class="role">Agent</div>'+md(awam)
+        +'<div class="tech-toggle">🔧 Lihat detail teknis</div><div class="tech-box"></div>');
+      var tog=b.querySelector(".tech-toggle"), box=b.querySelector(".tech-box");
+      tog.addEventListener("click", function(){ box.classList.toggle("on"); box.innerHTML=box.classList.contains("on")?md(data.output_technical||'-'):""; scrollDown(); });
+      convo.push({ role:"agent", text: awam });
+      renderDetail(data);
     })
-    .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
-    .then(function (data) {
-      if (data.konversi_error) {
-        statusEl.innerHTML = '<span style="color:#fca5a5;">⚠️ Konversi DWG gagal: ' + esc(data.konversi_error) + '</span>';
-      }
-      function card(title, body, cls, copyKey) {
-        var c = copyKey ? '<button class="bms-copy" data-copy="' + copyKey + '" type="button">Salin</button>' : '';
-        return '<div class="bms-out ' + (cls || '') + '">' + c +
-               '<div class="bms-out-title">' + title + '</div><div class="bms-out-body">' + md(body || '-') + '</div></div>';
-      }
-      var inkon = data.inkonsistensi || [], tanya = data.pertanyaan_klarifikasi || [];
-      var checkerBody = (data.info_terverifikasi || '-')
-        + (inkon.length ? '\n\n⚠️ Inkonsistensi:\n- ' + inkon.join('\n- ') : '')
-        + (tanya.length ? '\n\n❓ Perlu klarifikasi:\n- ' + tanya.join('\n- ') : '');
+    .catch(function(err){ typing.remove(); addBubble("err","❌ Gagal: "+err.message); statusEl.textContent=""; })
+    .finally(function(){ sendBtn.disabled=false; inputEl.focus(); });
+  }
 
-      resEl.innerHTML =
-        card('🙂 Output Awam (untuk Sales)', data.output_awam, '', 'awam') +
-        card('🔩 Output Teknis (untuk Tim Teknik)', data.output_technical, 'tech', 'tech') +
-        '<div class="bms-out flow"><div class="bms-out-title">🗺️ Skematik Alur Kerja</div><div id="flow-box" class="flow-box">⏳ Merender diagram...</div></div>' +
-        '<details class="bms-steps"><summary>🔍 Lihat proses tiap agent</summary>' +
-          card('🅰️ Agent Reader — Teks', data.reader_teks, 'step') +
-          card('🅱️ Agent Reader — Visual (gambar/CAD)', data.reader_visual, 'step') +
-          card('📦 Agent Product (fokus Azbil)', data.produk, 'step') +
-          card('🔧 Agent Technical (skematik + jumlah)', data.teknis, 'tech') +
-          card('✅ Agent Checker — Koordinator (cek semua & selaraskan)', checkerBody, 'warn') +
-        '</details>';
+  sendBtn.addEventListener("click", send);
+  inputEl.addEventListener("keydown", function(e){
+    if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); send(); }
+  });
+  inputEl.addEventListener("input", function(){ inputEl.style.height="40px"; inputEl.style.height=Math.min(inputEl.scrollHeight,140)+"px"; });
 
-      if (!data.konversi_error) statusEl.textContent = "";
-      resEl.querySelectorAll(".bms-copy").forEach(function (b) {
-        b.addEventListener("click", function () {
-          var body = b.parentElement.querySelector(".bms-out-body");
-          var t = body ? (body.innerText || body.textContent || "") : "";
-          navigator.clipboard.writeText(t).then(function () {
-            b.textContent = "✓ Tersalin"; setTimeout(function () { b.textContent = "Salin"; }, 1500);
-          });
-        });
-      });
-
-      if (data.flow_mermaid) renderFlow(data.flow_mermaid);
-      else { var fb = document.querySelector(".bms-out.flow"); if (fb) fb.style.display = "none"; }
-    })
-    .catch(function (err) { statusEl.textContent = "❌ Gagal: " + err.message; })
-    .finally(function () { btn.disabled = false; btn.textContent = "✨ Analisa Permintaan"; });
+  document.getElementById("bms-reset").addEventListener("click", function(){
+    if(!convo.length){ return; }
+    if(!confirm("Mulai percakapan baru? Chat sekarang akan dihapus.")) return;
+    convo=[]; clearAttach();
+    chatEl.innerHTML='<div class="bubble sys">💬 Percakapan baru. Tempel chat customer di bawah.</div>';
+    detailEl.innerHTML=""; detailWrap.style.display="none"; statusEl.textContent="";
   });
 })();
 </script>
