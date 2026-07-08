@@ -118,6 +118,33 @@ html, body { background:#0f1420 !important; }
 .bms-out-body th { background:#1f2737; color:#e2e8f0; }
 .bms-copy { float:right; background:#1f2737; border:1px solid #3b4860; color:#cbd5e1; font-size:11px; padding:4px 10px; border-radius:7px; cursor:pointer; }
 
+/* Scrollbar elegan (chat, detail, area overflow) */
+.bms-chat, .bms-detail-scroll, .bms-out-body, .flow-box, #bms-chat-input {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148,163,184,.35) transparent;
+}
+.bms-chat::-webkit-scrollbar, .bms-detail-scroll::-webkit-scrollbar,
+.bms-out-body::-webkit-scrollbar, .flow-box::-webkit-scrollbar,
+#bms-chat-input::-webkit-scrollbar { width:8px; height:8px; }
+.bms-chat::-webkit-scrollbar-track, .bms-detail-scroll::-webkit-scrollbar-track,
+.bms-out-body::-webkit-scrollbar-track, .flow-box::-webkit-scrollbar-track,
+#bms-chat-input::-webkit-scrollbar-track { background:transparent; margin:6px 0; }
+.bms-chat::-webkit-scrollbar-thumb, .bms-detail-scroll::-webkit-scrollbar-thumb,
+.bms-out-body::-webkit-scrollbar-thumb, .flow-box::-webkit-scrollbar-thumb,
+#bms-chat-input::-webkit-scrollbar-thumb {
+  background:rgba(148,163,184,.28); border-radius:99px;
+  border:2px solid transparent; background-clip:padding-box;
+  transition:background .2s;
+}
+.bms-chat:hover::-webkit-scrollbar-thumb, .bms-detail-scroll:hover::-webkit-scrollbar-thumb,
+.bms-out-body:hover::-webkit-scrollbar-thumb, .flow-box:hover::-webkit-scrollbar-thumb {
+  background:rgba(148,163,184,.5); background-clip:padding-box;
+}
+.bms-chat::-webkit-scrollbar-thumb:hover, .bms-detail-scroll::-webkit-scrollbar-thumb:hover {
+  background:rgba(148,163,184,.7); background-clip:padding-box;
+}
+.bms-chat::-webkit-scrollbar-corner, .bms-detail-scroll::-webkit-scrollbar-corner { background:transparent; }
+
 /* Layar sempit: kembali bertumpuk (chat atas, detail bawah) */
 @media (max-width: 820px) {
   #bms.chatting { max-width:820px; }
