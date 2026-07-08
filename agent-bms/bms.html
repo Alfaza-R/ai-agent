@@ -128,6 +128,8 @@ html, body {
 .bms-out-body th,.bms-out-body td { border:1px solid #2a3344; padding:6px 9px; text-align:left; vertical-align:top; }
 .bms-out-body th { background:#1f2737; color:#e2e8f0; }
 .bms-copy { float:right; background:#1f2737; border:1px solid #3b4860; color:#cbd5e1; font-size:11px; padding:4px 10px; border-radius:7px; cursor:pointer; }
+.bms-dlpng { float:right; background:#0e7490; border:1px solid #0891b2; color:#e0f2fe; font-size:11px; font-weight:600; padding:4px 10px; border-radius:7px; cursor:pointer; }
+.bms-dlpng:hover { background:#0891b2; }
 
 /* Scrollbar elegan (chat, detail, area overflow) */
 .bms-chat, .bms-detail-scroll, .bms-out-body, .flow-box, #bms-chat-input {
@@ -208,7 +210,7 @@ html, body {
     if (!box) return;
     if (typeof mermaid==="undefined"){ setTimeout(function(){ renderFlow(code, boxId); },500); return; }
     try {
-      mermaid.initialize({ startOnLoad:false, theme:"dark", securityLevel:"loose" });
+      mermaid.initialize({ startOnLoad:false, theme:"dark", securityLevel:"loose", flowchart:{ htmlLabels:false, useMaxWidth:true } });
       mermaid.render("flowsvg_"+(++flowN), code).then(function(r){ box.innerHTML=r.svg; })
         .catch(function(){ box.innerHTML='<pre style="white-space:pre-wrap;margin:0;">'+esc(code)+'</pre>'; });
     } catch(e){ box.innerHTML='<pre style="white-space:pre-wrap;margin:0;">'+esc(code)+'</pre>'; }
@@ -226,7 +228,7 @@ html, body {
     var boxId = "flow-box-"+(flowN+1);
     detailEl.innerHTML =
       card('🔩 Output Teknis (tim teknik)', data.output_technical, 'tech') +
-      '<div class="bms-out flow"><div class="bms-out-title">🗺️ Skematik Alur Kerja</div><div id="'+boxId+'" class="flow-box">⏳ Merender...</div></div>' +
+      '<div class="bms-out flow"><button class="bms-dlpng" data-box="'+boxId+'" type="button">⬇️ PNG</button><div class="bms-out-title">🗺️ Skematik Alur Kerja</div><div id="'+boxId+'" class="flow-box">⏳ Merender...</div></div>' +
       card('🅰️ Reader — Teks', data.reader_teks, 'step') +
       card('🅱️ Reader — Visual', data.reader_visual, 'step') +
       card('📦 Product (Azbil)', data.produk, 'step') +
@@ -239,8 +241,40 @@ html, body {
         navigator.clipboard.writeText(t).then(function(){ b.textContent="✓"; setTimeout(function(){ b.textContent="Salin"; },1200); });
       });
     });
+    var dl=detailEl.querySelector(".bms-dlpng");
+    if(dl) dl.addEventListener("click", function(){ downloadFlowPng(dl.getAttribute("data-box")); });
     if (data.flow_mermaid) renderFlow(data.flow_mermaid, boxId);
     else { var fb=detailEl.querySelector(".bms-out.flow"); if(fb) fb.style.display="none"; }
+  }
+
+  function downloadFlowPng(boxId){
+    var box=document.getElementById(boxId);
+    var svg=box && box.querySelector("svg");
+    if(!svg){ alert("Diagram belum selesai dirender, coba lagi sebentar."); return; }
+    var vb=svg.viewBox && svg.viewBox.baseVal;
+    var w=(vb && vb.width)  || svg.getBoundingClientRect().width  || 800;
+    var h=(vb && vb.height) || svg.getBoundingClientRect().height || 600;
+    var clone=svg.cloneNode(true);
+    clone.setAttribute("width", w); clone.setAttribute("height", h);
+    clone.setAttribute("xmlns","http://www.w3.org/2000/svg");
+    var xml=new XMLSerializer().serializeToString(clone);
+    var src="data:image/svg+xml;base64,"+btoa(unescape(encodeURIComponent(xml)));
+    var img=new Image();
+    img.onload=function(){
+      var scale=2, canvas=document.createElement("canvas");
+      canvas.width=Math.ceil(w*scale); canvas.height=Math.ceil(h*scale);
+      var ctx=canvas.getContext("2d");
+      ctx.fillStyle="#0f1420"; ctx.fillRect(0,0,canvas.width,canvas.height);
+      ctx.setTransform(scale,0,0,scale,0,0);
+      ctx.drawImage(img,0,0,w,h);
+      canvas.toBlob(function(b){
+        var a=document.createElement("a"); a.href=URL.createObjectURL(b);
+        a.download="skematik-bms-"+Date.now()+".png"; a.click();
+        setTimeout(function(){ URL.revokeObjectURL(a.href); },2000);
+      },"image/png");
+    };
+    img.onerror=function(){ alert("Gagal membuat PNG dari diagram."); };
+    img.src=src;
   }
 
   function clearAttach(){ imgB64=""; imgMime=""; imgName=""; chipEl.innerHTML=""; document.getElementById("bms-image").value=""; }
