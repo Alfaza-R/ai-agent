@@ -189,25 +189,73 @@ def _agent_flow(teknis):
     return re.sub(r"```mermaid|```", "", out or "").strip()
 
 
-# ── Agent Result (2 output) ───────────────────────────────────────────
-def _agent_result(info, inkon, tanya, produk, teknis, service):
+# ── Agent Compare (cari produk alternatif merek lain) ─────────────────
+def _agent_compare(info, produk):
     prompt = (
-        "Kamu Agent Result untuk tim sales & service FAKOPP. Berdasarkan SELURUH data di bawah, buat DUA output "
+        "Kamu Agent Compare untuk tim sales FAKOPP. Berdasarkan kebutuhan + produk Fakopp yang direkomendasikan di "
+        "bawah, cari produk ALTERNATIF dari MEREK LAIN yang fungsinya mirip / setara untuk tiap kebutuhan (supaya "
+        "sales punya opsi selain Fakopp).\n"
+        "Cari & verifikasi di web. Contoh pembanding sesuai metode: tomografi akustik pohon -> PiCUS Sonic Tomograph "
+        "(Argus Electronic); deteksi busuk via resistance drilling -> IML-RESI / Resistograph (IML/Rinntech); uji "
+        "stabilitas/pulling -> TreeQinetic (Argus Electronic); stress wave / MOE kayu -> Director/HM200 (Fibre-gen), "
+        "dll. Metode bisa beda (akustik vs bor resistansi) — jelaskan.\n"
+        "Untuk tiap produk Fakopp, beri 1-2 padanan + kenapa setara + perbedaan metode. Buat TABEL Markdown: "
+        "Kebutuhan | Produk Fakopp | Alternatif (merek+model) | Perbedaan utama (metode/hasil/kepraktisan).\n"
+        "Realistis; jangan mengarang model. Kalau ragu, sebut kategori + tandai 'perlu verifikasi'.\n\n"
+        "=== KEBUTUHAN ===\n" + info + "\n\n=== PRODUK FAKOPP TERPILIH ===\n" + produk
+    )
+    return _gen_search(prompt)
+
+
+# ── Agent Budget (estimasi harga modal & penawaran) ───────────────────
+def _agent_budget(info, produk, compare):
+    prompt = (
+        "Kamu Agent Budget untuk Taharica (supplier/distributor alat ukur). Dari daftar produk Fakopp + alternatif "
+        "(hasil Agent Compare) di bawah, buat ESTIMASI BIAYA.\n"
+        "PENTING: kamu TIDAK tahu harga beli/margin internal Taharica yang sebenarnya. Buat estimasi KASAR berbasis "
+        "harga pasar/list dari web, lalu terapkan ASUMSI yang kamu sebutkan eksplisit. Selalu beri RENTANG harga, "
+        "sebut mata uang (USD/EUR/IDR), dan tandai '(estimasi, wajib diverifikasi)'. Jangan mengarang angka pasti. "
+        "Catatan: alat Fakopp/pesaing sering premium (ribuan sampai puluhan ribu USD/EUR) — hati-hati, beri rentang.\n"
+        "Asumsi default (sebutkan & boleh disesuaikan): harga modal ≈ harga list dikurangi diskon distributor ~20-35%; "
+        "harga penawaran ke customer ≈ harga modal + margin ~20-40% (plus catatan bea/kurs/qty).\n\n"
+        "Hasilkan DUA bagian, mencakup produk Fakopp DAN alternatif (buat tabel bila memungkinkan):\n"
+        "- modal: kisaran HARGA MODAL (biaya beli untuk Taharica sebagai supplier) per item + total kasar.\n"
+        "- penawaran: kisaran HARGA PENAWARAN ke customer (harga jual) per item + total kasar.\n\n"
+        "Kembalikan HANYA JSON valid (tanpa backtick): {\"modal\":\"...markdown...\", \"penawaran\":\"...markdown...\"}\n\n"
+        "=== KEBUTUHAN ===\n" + info +
+        "\n\n=== PRODUK FAKOPP ===\n" + produk +
+        "\n\n=== ALTERNATIF (COMPARE) ===\n" + compare
+    )
+    return _json(_gen_search(prompt), {"modal": "", "penawaran": ""})
+
+
+# ── Agent Result (3 output: sales Fakopp, sales produk lain, teknis) ──
+def _agent_result(info, inkon, tanya, produk, teknis, service, compare, budget):
+    modal = (budget or {}).get("modal", "") or "-"
+    penawaran = (budget or {}).get("penawaran", "") or "-"
+    prompt = (
+        "Kamu Agent Result untuk tim sales & service FAKOPP. Berdasarkan SELURUH data di bawah, buat TIGA output "
         "Bahasa Indonesia:\n"
-        "1. output_awam: penjelasan singkat + rekomendasi balasan untuk SALES (bahasa sederhana, siap dipakai membalas "
-        "customer; boleh sebut produk Fakopp secara umum + poin service bila relevan).\n"
-        "2. output_technical: rangkuman teknis mendetail untuk tim teknik/service (produk Fakopp + model, metode/BOM, "
-        "catatan kalibrasi/software/training, interpretasi hasil, dan pertanyaan teknis).\n"
-        "Sertakan pertanyaan klarifikasi bila ada. JANGAN mengarang di luar data.\n\n"
-        "Kembalikan HANYA JSON valid (tanpa backtick): {\"output_awam\":\"...\", \"output_technical\":\"...\"}\n\n"
+        "1. output_awam_hobo: rekomendasi balasan untuk SALES memakai produk FAKOPP (bahasa sederhana, siap dipakai "
+        "membalas customer; sebut produk Fakopp + poin service + kisaran harga penawaran bila relevan).\n"
+        "2. output_awam_lain: rekomendasi balasan versi PRODUK ALTERNATIF (merek lain dari Agent Compare) sebagai opsi "
+        "kedua (sebut merek+model + kelebihan/kekurangan + beda metode + kisaran harga penawaran).\n"
+        "3. output_technical: rangkuman teknis mendetail untuk tim teknik/service (produk Fakopp + alternatif, metode/"
+        "BOM, kalibrasi/software/training, perbandingan teknis, dan ringkasan estimasi biaya modal vs penawaran).\n"
+        "Sertakan pertanyaan klarifikasi bila ada. Tandai angka harga sebagai estimasi. JANGAN mengarang di luar data.\n\n"
+        "Kembalikan HANYA JSON valid (tanpa backtick): "
+        "{\"output_awam_hobo\":\"...\", \"output_awam_lain\":\"...\", \"output_technical\":\"...\"}\n\n"
         "=== INFO TERVERIFIKASI ===\n" + info +
         "\n\n=== INKONSISTENSI ===\n" + ("; ".join(map(str, inkon)) or "-") +
         "\n\n=== PERTANYAAN KLARIFIKASI ===\n" + ("; ".join(map(str, tanya)) or "-") +
-        "\n\n=== PRODUK ===\n" + produk +
+        "\n\n=== PRODUK FAKOPP ===\n" + produk +
+        "\n\n=== ALTERNATIF (COMPARE) ===\n" + compare +
         "\n\n=== TEKNIS ===\n" + teknis +
-        "\n\n=== SERVICE ===\n" + service
+        "\n\n=== SERVICE ===\n" + service +
+        "\n\n=== ESTIMASI MODAL ===\n" + modal +
+        "\n\n=== ESTIMASI PENAWARAN ===\n" + penawaran
     )
-    return _json(_gen(prompt), {"output_awam": "", "output_technical": ""})
+    return _json(_gen(prompt), {"output_awam_hobo": "", "output_awam_lain": "", "output_technical": ""})
 
 
 def analisa_fakopp(chat, image_base64="", image_mime="image/png", riwayat=""):
@@ -256,8 +304,12 @@ def analisa_fakopp(chat, image_base64="", image_mime="image/png", riwayat=""):
     inkon = checker.get("inkonsistensi", []) or []
     tanya = checker.get("pertanyaan_klarifikasi", []) or []
 
+    # Compare (alternatif merek lain) + Budget (estimasi harga)
+    compare = _agent_compare(info, produk)
+    budget  = _agent_budget(info, produk, compare)
+
     flow  = _agent_flow(teknis)
-    hasil = _agent_result(info, inkon, tanya, produk, teknis, service)
+    hasil = _agent_result(info, inkon, tanya, produk, teknis, service, compare, budget)
 
     return {
         "reader_teks":            teks_info,
@@ -268,7 +320,11 @@ def analisa_fakopp(chat, image_base64="", image_mime="image/png", riwayat=""):
         "produk":                 produk,
         "teknis":                 teknis,
         "service":                service,
+        "compare":                compare,
+        "budget_modal":           (budget.get("modal") or "").strip(),
+        "budget_penawaran":       (budget.get("penawaran") or "").strip(),
         "flow_mermaid":           flow,
-        "output_awam":            (hasil.get("output_awam") or "").strip(),
+        "output_awam_hobo":       (hasil.get("output_awam_hobo") or "").strip(),
+        "output_awam_lain":       (hasil.get("output_awam_lain") or "").strip(),
         "output_technical":       (hasil.get("output_technical") or "").strip(),
     }

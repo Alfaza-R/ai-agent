@@ -20,15 +20,19 @@ Bantu tim sales & service alat **Fakopp** (uji pohon & kayu berbasis akustik) me
 4. **🔧 Technical** — metode & setup pengukuran + BOM + catatan interpretasi.
 5. **🛠️ Service** — kalibrasi, software (ArborSonic/DynaRoot), training, troubleshooting, garansi.
 6. **✅ Checker — KOORDINATOR** — cek Product/Technical/Service vs Reader (mis. tujuan stabilitas harus DynaRoot, bukan tomograph); kirim koreksi (loop maks 2x).
-7. **🗺️ Flow** — MermaidJS alur pengukuran.
-8. **🎯 Result** — output awam (sales) + teknis (tim teknik/service).
+7. **🔄 Compare** (`_agent_compare`) — cari alternatif merek lain via web (PiCUS/Argus, IML-RESI Resistograph, TreeQinetic, dll) → tabel banding + beda metode.
+8. **💰 Budget** (`_agent_budget`) — estimasi biaya dari Product + Compare → **2 sub-output**: `modal` (harga beli Taharica) & `penawaran` (harga jual customer). Estimasi kasar + asumsi eksplisit; wajib diverifikasi.
+9. **🗺️ Flow** — MermaidJS alur pengukuran.
+10. **🎯 Result** — **3 output**: sales versi Fakopp, sales versi produk lain, teknis.
 
 ## Output (JSON)
 ```json
 { "reader_teks","reader_visual","info_terverifikasi","inkonsistensi":[],
-  "pertanyaan_klarifikasi":[],"produk","teknis","service","flow_mermaid",
-  "output_awam","output_technical" }
+  "pertanyaan_klarifikasi":[],"produk","teknis","service","compare",
+  "budget_modal","budget_penawaran","flow_mermaid",
+  "output_awam_hobo","output_awam_lain","output_technical" }
 ```
+(`output_awam_hobo` = versi Fakopp — nama field disamakan dengan HOBO agar frontend seragam.)
 
 ## Konfigurasi
 - `FAKOPP_SITES` (Secret, default `fakopp.com`) — website acuan Agent Product. Tambah distributor lokal bila ada.

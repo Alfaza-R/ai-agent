@@ -85,9 +85,12 @@ html, body {
 .bubble.agent h1,.bubble.agent h2,.bubble.agent h3 { font-size:14.5px; margin:8px 0 4px; color:#f1f5f9; }
 .bubble.agent table { border-collapse:collapse; width:100%; margin:6px 0; font-size:12px; }
 .bubble.agent th,.bubble.agent td { border:1px solid #274d3a; padding:5px 8px; text-align:left; }
-.bubble .tech-toggle { display:inline-block; margin-top:8px; font-size:12px; color:#6ee7b7; cursor:pointer; border:1px solid #274d3a; padding:3px 9px; border-radius:7px; }
+.bubble .agent-tabs { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+.bubble .tech-toggle { display:inline-block; font-size:12px; color:#6ee7b7; cursor:pointer; border:1px solid #274d3a; padding:3px 9px; border-radius:7px; }
+.bubble .tech-toggle:hover { background:#1a3427; }
 .bubble .tech-box { margin-top:8px; padding-top:8px; border-top:1px dashed #274d3a; font-size:13px; color:#cbd5e1; display:none; }
 .bubble .tech-box.on { display:block; }
+.bubble .alt-head { font-weight:700; color:#fbbf24; font-size:12.5px; margin-bottom:5px; }
 .typing span { display:inline-block; width:7px; height:7px; margin:0 1px; background:#64748b; border-radius:50%; animation:fkblink 1.2s infinite both; }
 .typing span:nth-child(2){ animation-delay:.2s; } .typing span:nth-child(3){ animation-delay:.4s; }
 @keyframes fkblink { 0%,80%,100%{ opacity:.2; } 40%{ opacity:1; } }
@@ -111,7 +114,8 @@ html, body {
 .fk-out { background:#132a20; border:1px solid #274d3a; border-radius:12px; padding:16px 18px; margin-top:10px; }
 .fk-out-title { font-weight:700; font-size:13.5px; color:#6ee7b7; margin-bottom:8px; }
 .fk-out.tech .fk-out-title { color:#c4b5fd; }
-.fk-out.svc .fk-out-title { color:#fbbf24; }
+.fk-out.svc .fk-out-title { color:#86efac; }
+.fk-out.budget { border-color:#7c5e1e; } .fk-out.budget .fk-out-title { color:#fbbf24; }
 .fk-out.warn { border-color:#7c5e1e; } .fk-out.warn .fk-out-title { color:#fcd34d; }
 .fk-out.step .fk-out-title { color:#94a3b8; }
 .fk-out.flow .fk-out-title { color:#5eead4; }
@@ -227,8 +231,11 @@ html, body {
       card('🅰️ Reader — Teks', data.reader_teks, 'step') +
       card('🅱️ Reader — Visual (foto/datasheet)', data.reader_visual, 'step') +
       card('📦 Product (Fakopp — fakopp.com)', data.produk, 'step') +
+      card('🔄 Compare (alternatif merek lain)', data.compare, 'step') +
       card('🔧 Technical (metode + BOM)', data.teknis, 'tech') +
       card('🛠️ Service (kalibrasi, software, training)', data.service, 'svc') +
+      card('💰 Budget — Harga Modal (Taharica/supplier)', data.budget_modal, 'budget') +
+      card('🏷️ Budget — Harga Penawaran (ke customer)', data.budget_penawaran, 'budget') +
       card('✅ Checker — Koordinator', checkerBody, 'warn');
     detailEl.querySelectorAll(".fk-copy").forEach(function(b){
       b.addEventListener("click", function(){
@@ -306,11 +313,25 @@ html, body {
     .then(function(r){ if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); })
     .then(function(data){
       typing.remove(); statusEl.textContent="";
-      var awam=data.output_awam||"(tidak ada balasan)";
-      var b=addBubble("agent",'<div class="role">Agent</div>'+md(awam)
-        +'<div class="tech-toggle">🔧 Lihat detail teknis</div><div class="tech-box"></div>');
-      var tog=b.querySelector(".tech-toggle"), box=b.querySelector(".tech-box");
-      tog.addEventListener("click", function(){ box.classList.toggle("on"); box.innerHTML=box.classList.contains("on")?md(data.output_technical||'-'):""; scrollDown(); });
+      var awam=data.output_awam_hobo||data.output_awam||"(tidak ada balasan)";
+      var b=addBubble("agent",'<div class="role">Agent — Versi Fakopp</div>'+md(awam)
+        +'<div class="agent-tabs">'
+        +'<span class="tech-toggle" data-t="alt">🔄 Versi produk lain</span>'
+        +'<span class="tech-toggle" data-t="tech">🔧 Detail teknis</span></div>'
+        +'<div class="tech-box alt-box"></div><div class="tech-box the-tech-box"></div>');
+      var altBox=b.querySelector(".alt-box"), techBox=b.querySelector(".the-tech-box");
+      b.querySelectorAll(".tech-toggle").forEach(function(t){
+        t.addEventListener("click", function(){
+          if(t.getAttribute("data-t")==="alt"){
+            altBox.classList.toggle("on");
+            altBox.innerHTML=altBox.classList.contains("on")?('<div class="alt-head">🔄 Rekomendasi produk alternatif (merek lain)</div>'+md(data.output_awam_lain||'-')):"";
+          } else {
+            techBox.classList.toggle("on");
+            techBox.innerHTML=techBox.classList.contains("on")?md(data.output_technical||'-'):"";
+          }
+          scrollDown();
+        });
+      });
       convo.push({ role:"agent", text: awam });
       renderDetail(data);
     })
