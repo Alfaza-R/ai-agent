@@ -229,9 +229,10 @@ def _agent_budget(info, produk, compare):
 
 
 # ── Agent Result (3 output: sales HOBO, sales produk lain, teknis) ────
-def _agent_result(info, inkon, tanya, produk, teknis, service, compare, budget):
+def _agent_result(info, inkon, tanya, produk, teknis, service, compare, budget, instruksi=""):
     modal = (budget or {}).get("modal", "") or "-"
     penawaran = (budget or {}).get("penawaran", "") or "-"
+    fb = ("\n\n=== PERMINTAAN LANJUTAN DARI USER (utamakan penuhi ini di jawaban) ===\n" + instruksi) if instruksi else ""
     prompt = (
         "Kamu Agent Result untuk tim sales & service HOBO. Berdasarkan SELURUH data di bawah, buat TIGA output Bahasa "
         "Indonesia:\n"
@@ -252,67 +253,51 @@ def _agent_result(info, inkon, tanya, produk, teknis, service, compare, budget):
         "\n\n=== TEKNIS ===\n" + teknis +
         "\n\n=== SERVICE ===\n" + service +
         "\n\n=== ESTIMASI MODAL ===\n" + modal +
-        "\n\n=== ESTIMASI PENAWARAN ===\n" + penawaran
+        "\n\n=== ESTIMASI PENAWARAN ===\n" + penawaran + fb
     )
     return _json(_gen(prompt), {"output_awam_hobo": "", "output_awam_lain": "", "output_technical": ""})
 
 
-def analisa_hobo(chat, image_base64="", image_mime="image/png", riwayat=""):
-    chat = (chat or "").strip()
-    riwayat = (riwayat or "").strip()
-    file_bytes = None
-    mime = None
+# ── Agent Router (dispatcher untuk chat lanjutan) ─────────────────────
+def _clip(s, n=600):
+    s = str(s or "")
+    return s if len(s) <= n else s[:n] + " ..."
 
-    # Percakapan berlanjut: gabungkan riwayat + pesan terbaru sebagai konteks Reader.
-    if riwayat:
-        chat_ctx = ("=== RIWAYAT PERCAKAPAN SEBELUMNYA ===\n" + riwayat +
-                    "\n\n=== PESAN CUSTOMER TERBARU (fokus utama balasan) ===\n" + chat)
-    else:
-        chat_ctx = chat
 
-    # Siapkan file (gambar / PDF) — opsional
-    if image_base64 and types is not None:
-        try:
-            file_bytes = base64.b64decode(image_base64)
-        except (binascii.Error, ValueError):
-            file_bytes = None
-        if file_bytes:
-            mime = image_mime or "image/png"
+def _agent_router(chat, riwayat, prev):
+    ringkas = (
+        "Produk (HOBO): " + _clip(prev.get("produk")) +
+        "\nTechnical: " + _clip(prev.get("teknis")) +
+        "\nService: " + _clip(prev.get("service")) +
+        "\nCompare: " + _clip(prev.get("compare")) +
+        "\nBudget modal: " + _clip(prev.get("budget_modal"), 200) +
+        "\nBalasan sebelumnya: " + _clip(prev.get("output_awam_hobo"))
+    )
+    prompt = (
+        "Kamu Agent Router (dispatcher) untuk percakapan lanjutan tim sales HOBO. Ada HASIL ANALISA SEBELUMNYA dan "
+        "PESAN BARU dari user. Tentukan agent MANA saja yang perlu BEKERJA ULANG supaya efisien — JANGAN jalankan "
+        "semua agent kalau perubahan tidak relevan.\n"
+        "Agent tersedia (pakai kata kunci ini): "
+        "reader (baca ulang kebutuhan), product (rekomendasi produk HOBO), technical (setup/BOM), "
+        "service (after-sales), compare (alternatif merek lain), budget (estimasi harga).\n"
+        "Aturan:\n"
+        "- Pilih HANYA agent yang relevan dengan pesan baru. Contoh: 'ganti rekomendasi produknya' -> [product] "
+        "(dan technical/budget bila jelas terpengaruh); 'tolong hitung ulang harga' -> [budget]; "
+        "'carikan alternatif China' -> [compare]; 'sensornya kurang, tambah jadi 20 titik' -> [technical, budget].\n"
+        "- Kalau pesan hanya minta ubah GAYA/BAHASA balasan, mempersingkat, atau klarifikasi kecil tanpa mengubah "
+        "substansi -> kembalikan agents KOSONG [] (cukup susun ulang jawaban).\n"
+        "- Kalau ragu-ragu besar / kebutuhan berubah total -> boleh sertakan banyak agent.\n\n"
+        "Kembalikan HANYA JSON valid (tanpa backtick): {\"agents\":[\"product\"], \"alasan\":\"...singkat...\"}\n\n"
+        "=== HASIL SEBELUMNYA (ringkas) ===\n" + ringkas +
+        "\n\n=== PESAN BARU ===\n" + chat
+    )
+    d = _json(_gen(prompt), {"agents": ["reader", "product", "technical", "service", "compare", "budget"], "alasan": ""})
+    valid = {"reader", "product", "technical", "service", "compare", "budget"}
+    d["agents"] = [a for a in (d.get("agents") or []) if a in valid]
+    return d
 
-    # 1) Reader (acuan kebenaran) — termasuk riwayat bila ada
-    teks_info   = _agent_reader_teks(chat_ctx)
-    visual_info = _agent_reader_visual(file_bytes, mime)
-    sumber      = "TEKS:\n" + teks_info + "\n\nVISUAL:\n" + visual_info
 
-    # 2) Product + Technical + Service, lalu Checker koordinator (loop maks 2)
-    koreksi_p = koreksi_t = koreksi_s = ""
-    produk = teknis = service = ""
-    checker = {}
-    for _ in range(2):
-        produk  = _agent_product(sumber, koreksi_p)
-        teknis  = _agent_technical(sumber, produk, koreksi_t)
-        service = _agent_service(sumber, produk, koreksi_s)
-        checker = _agent_checker_all(teks_info, visual_info, produk, teknis, service)
-        if checker.get("konsisten", True):
-            break
-        koreksi_p = checker.get("koreksi_product", "") or ""
-        koreksi_t = checker.get("koreksi_technical", "") or ""
-        koreksi_s = checker.get("koreksi_service", "") or ""
-        if not (koreksi_p or koreksi_t or koreksi_s):
-            break
-
-    info  = checker.get("info_terverifikasi", "") or sumber
-    inkon = checker.get("inkonsistensi", []) or []
-    tanya = checker.get("pertanyaan_klarifikasi", []) or []
-
-    # 3) Compare (cari alternatif merek lain) + Budget (estimasi harga)
-    compare = _agent_compare(info, produk)
-    budget  = _agent_budget(info, produk, compare)
-
-    # 4) Flow + Result (3 output)
-    flow  = _agent_flow(teknis)
-    hasil = _agent_result(info, inkon, tanya, produk, teknis, service, compare, budget)
-
+def _bungkus(teks_info, visual_info, info, inkon, tanya, produk, teknis, service, compare, budget, flow, hasil, rute=None):
     return {
         "reader_teks":            teks_info,
         "reader_visual":          visual_info,
@@ -329,4 +314,118 @@ def analisa_hobo(chat, image_base64="", image_mime="image/png", riwayat=""):
         "output_awam_hobo":       (hasil.get("output_awam_hobo") or "").strip(),
         "output_awam_lain":       (hasil.get("output_awam_lain") or "").strip(),
         "output_technical":       (hasil.get("output_technical") or "").strip(),
+        "rute_agent":             (rute or {}).get("agents", []),
+        "rute_alasan":            (rute or {}).get("alasan", ""),
     }
+
+
+def analisa_hobo(chat, image_base64="", image_mime="image/png", riwayat="", sebelumnya=None):
+    chat = (chat or "").strip()
+    riwayat = (riwayat or "").strip()
+    prev = sebelumnya if isinstance(sebelumnya, dict) and sebelumnya else None
+    file_bytes = None
+    mime = None
+
+    if riwayat:
+        chat_ctx = ("=== RIWAYAT PERCAKAPAN SEBELUMNYA ===\n" + riwayat +
+                    "\n\n=== PESAN CUSTOMER TERBARU (fokus utama balasan) ===\n" + chat)
+    else:
+        chat_ctx = chat
+
+    # Siapkan file (gambar / PDF) — opsional
+    if image_base64 and types is not None:
+        try:
+            file_bytes = base64.b64decode(image_base64)
+        except (binascii.Error, ValueError):
+            file_bytes = None
+        if file_bytes:
+            mime = image_mime or "image/png"
+
+    # ===== TURN PERTAMA (tanpa hasil sebelumnya) -> pipeline PENUH =====
+    if not prev:
+        teks_info   = _agent_reader_teks(chat_ctx)
+        visual_info = _agent_reader_visual(file_bytes, mime)
+        sumber      = "TEKS:\n" + teks_info + "\n\nVISUAL:\n" + visual_info
+
+        koreksi_p = koreksi_t = koreksi_s = ""
+        produk = teknis = service = ""
+        checker = {}
+        for _ in range(2):
+            produk  = _agent_product(sumber, koreksi_p)
+            teknis  = _agent_technical(sumber, produk, koreksi_t)
+            service = _agent_service(sumber, produk, koreksi_s)
+            checker = _agent_checker_all(teks_info, visual_info, produk, teknis, service)
+            if checker.get("konsisten", True):
+                break
+            koreksi_p = checker.get("koreksi_product", "") or ""
+            koreksi_t = checker.get("koreksi_technical", "") or ""
+            koreksi_s = checker.get("koreksi_service", "") or ""
+            if not (koreksi_p or koreksi_t or koreksi_s):
+                break
+
+        info  = checker.get("info_terverifikasi", "") or sumber
+        inkon = checker.get("inkonsistensi", []) or []
+        tanya = checker.get("pertanyaan_klarifikasi", []) or []
+        compare = _agent_compare(info, produk)
+        budget  = _agent_budget(info, produk, compare)
+        flow  = _agent_flow(teknis)
+        hasil = _agent_result(info, inkon, tanya, produk, teknis, service, compare, budget)
+        return _bungkus(teks_info, visual_info, info, inkon, tanya, produk, teknis, service, compare, budget, flow, hasil)
+
+    # ===== TURN LANJUTAN -> Router pilih agent yang perlu kerja =====
+    rute = _agent_router(chat, riwayat, prev)
+    agents = set(rute.get("agents") or [])
+    if file_bytes:
+        agents.add("reader")
+
+    # Reuse hasil turn sebelumnya untuk agent yang TIDAK perlu kerja ulang.
+    teks_info   = prev.get("reader_teks", "") or ""
+    visual_info = prev.get("reader_visual", "") or ""
+    produk  = prev.get("produk", "") or ""
+    teknis  = prev.get("teknis", "") or ""
+    service = prev.get("service", "") or ""
+    compare = prev.get("compare", "") or ""
+    budget  = {"modal": prev.get("budget_modal", "") or "", "penawaran": prev.get("budget_penawaran", "") or ""}
+    info    = prev.get("info_terverifikasi", "") or ""
+    inkon   = prev.get("inkonsistensi", []) or []
+    tanya   = prev.get("pertanyaan_klarifikasi", []) or []
+    flow    = prev.get("flow_mermaid", "") or ""
+
+    instr = "PERMINTAAN LANJUTAN DARI USER (WAJIB dipenuhi):\n" + chat
+
+    if "reader" in agents:
+        teks_info = _agent_reader_teks(chat_ctx)
+        if file_bytes:
+            visual_info = _agent_reader_visual(file_bytes, mime)
+    sumber = "TEKS:\n" + teks_info + "\n\nVISUAL:\n" + visual_info
+
+    if "product" in agents:
+        produk = _agent_product(sumber, instr)
+    if "technical" in agents:
+        teknis = _agent_technical(sumber, produk, instr)
+    if "service" in agents:
+        service = _agent_service(sumber, produk, instr)
+
+    # Checker verifikasi ulang bila agen inti berubah (satu putaran koreksi)
+    if agents & {"reader", "product", "technical", "service"}:
+        checker = _agent_checker_all(teks_info, visual_info, produk, teknis, service)
+        if not checker.get("konsisten", True):
+            kp = checker.get("koreksi_product", "") or ""
+            kt = checker.get("koreksi_technical", "") or ""
+            ks = checker.get("koreksi_service", "") or ""
+            if kp and "product" in agents:   produk  = _agent_product(sumber, kp)
+            if kt and "technical" in agents: teknis  = _agent_technical(sumber, produk, kt)
+            if ks and "service" in agents:   service = _agent_service(sumber, produk, ks)
+        info  = checker.get("info_terverifikasi", "") or info
+        inkon = checker.get("inkonsistensi", []) or []
+        tanya = checker.get("pertanyaan_klarifikasi", []) or []
+
+    if "compare" in agents:
+        compare = _agent_compare(info, produk)
+    if "budget" in agents:
+        budget = _agent_budget(info, produk, compare)
+    if "technical" in agents:
+        flow = _agent_flow(teknis)
+
+    hasil = _agent_result(info, inkon, tanya, produk, teknis, service, compare, budget, instr)
+    return _bungkus(teks_info, visual_info, info, inkon, tanya, produk, teknis, service, compare, budget, flow, hasil, rute)

@@ -128,10 +128,11 @@ class PesananHOBO(BaseModel):
     image_base64: str = ""
     image_mime: str = "image/png"
     riwayat: str = ""             # transkrip percakapan sebelumnya (chat lanjutan)
+    sebelumnya: dict | None = None  # hasil turn sebelumnya (untuk routing agent)
 
 @app.post("/hobo-sales")
 def endpoint_hobo_sales(pesanan: PesananHOBO):
-    return analisa_hobo(pesanan.chat, pesanan.image_base64, pesanan.image_mime, pesanan.riwayat)
+    return analisa_hobo(pesanan.chat, pesanan.image_base64, pesanan.image_mime, pesanan.riwayat, pesanan.sebelumnya)
 
 # Pesanan asisten sales & service alat Fakopp (uji pohon & kayu)
 class PesananFakopp(BaseModel):
@@ -139,7 +140,8 @@ class PesananFakopp(BaseModel):
     image_base64: str = ""
     image_mime: str = "image/png"
     riwayat: str = ""
+    sebelumnya: dict | None = None
 
 @app.post("/fakopp-sales")
 def endpoint_fakopp_sales(pesanan: PesananFakopp):
-    return analisa_fakopp(pesanan.chat, pesanan.image_base64, pesanan.image_mime, pesanan.riwayat)
+    return analisa_fakopp(pesanan.chat, pesanan.image_base64, pesanan.image_mime, pesanan.riwayat, pesanan.sebelumnya)

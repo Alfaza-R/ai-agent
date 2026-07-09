@@ -14,6 +14,8 @@ Bantu tim sales & service memahami permintaan customer soal produk **HOBO (Onset
 ```
 File (foto lokasi/datasheet/PDF) opsional — dibaca Gemini vision.
 
+**Routing (chat lanjutan):** frontend mengirim `sebelumnya` (hasil turn sebelumnya). Di turn lanjutan, **Agent Router** (`_agent_router`) memutuskan agent mana yang perlu bekerja ulang (mis. minta revisi produk → hanya `product` + downstream + checker; minta hitung ulang harga → hanya `budget`; ubah gaya balasan → tidak ada agent, cukup susun ulang). Agent lain memakai hasil lama → hemat waktu. Response menyertakan `rute_agent` (agent yang bekerja).
+
 **Chat mode (multi-turn):** frontend `hobo.html` = antarmuka chat 2 kolom (chat kiri, detail agent kanan, scroll independen, background mesh gradient, skematik bisa di-download PNG). Tiap kirim menyertakan `riwayat` agar balasan nyambung. `output_awam` = bubble balasan; `output_technical` + kartu per-agent (termasuk Service) + skematik di panel kanan.
 
 ## Pipeline (urutan)

@@ -34,6 +34,9 @@ Bantu tim sales & service alat **Fakopp** (uji pohon & kayu berbasis akustik) me
 ```
 (`output_awam_hobo` = versi Fakopp — nama field disamakan dengan HOBO agar frontend seragam.)
 
+## Routing (chat lanjutan)
+Frontend mengirim `sebelumnya` (hasil turn sebelumnya). Di turn lanjutan, **Agent Router** (`_agent_router`) memilih agent yang perlu bekerja ulang saja (mis. revisi produk → `product`+checker; hitung ulang harga → `budget`; ubah gaya → tidak ada). Response menyertakan `rute_agent`.
+
 ## Konfigurasi
 - `FAKOPP_SITES` (Secret, default `fakopp.com`) — website acuan Agent Product. Tambah distributor lokal bila ada.
 
