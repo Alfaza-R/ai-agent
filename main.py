@@ -7,6 +7,7 @@ from mesin_bms import analisa_bms    # asisten sales Building Management System
 from mesin_penetrasi import analisa_penetrasi, rekomendasi_target  # sistem multi-agent penetrasi pasar
 from mesin_konten_ig import buat_konten_ig  # multi-agent konten Instagram 4:5
 from mesin_hobo import analisa_hobo    # asisten sales & service HOBO data logger
+from mesin_fakopp import analisa_fakopp  # asisten sales & service alat Fakopp (pohon & kayu)
 
 # Bikin aplikasi backend-nya
 app = FastAPI()
@@ -131,3 +132,14 @@ class PesananHOBO(BaseModel):
 @app.post("/hobo-sales")
 def endpoint_hobo_sales(pesanan: PesananHOBO):
     return analisa_hobo(pesanan.chat, pesanan.image_base64, pesanan.image_mime, pesanan.riwayat)
+
+# Pesanan asisten sales & service alat Fakopp (uji pohon & kayu)
+class PesananFakopp(BaseModel):
+    chat: str = ""
+    image_base64: str = ""
+    image_mime: str = "image/png"
+    riwayat: str = ""
+
+@app.post("/fakopp-sales")
+def endpoint_fakopp_sales(pesanan: PesananFakopp):
+    return analisa_fakopp(pesanan.chat, pesanan.image_base64, pesanan.image_mime, pesanan.riwayat)

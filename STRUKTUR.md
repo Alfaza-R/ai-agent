@@ -14,6 +14,7 @@ ai-agent/
 ├── mesin_penetrasi.py          ← mesin Market Penetration     │ (dipakai deploy HF)
 ├── mesin_konten_ig.py          ← mesin Konten Instagram 4:5   │
 ├── mesin_hobo.py               ← mesin HOBO data logger       │
+├── mesin_fakopp.py             ← mesin Fakopp (pohon & kayu)  │
 ├── Dockerfile, requirements.txt, README.md                   ┘
 │
 ├── agent-content-planner/      📝 dokumentasi Content Planner + Brief Checker
@@ -22,6 +23,7 @@ ai-agent/
 ├── agent-penetrasi/            🚀 dokumentasi Market Penetration + penetrasi.html
 ├── agent-konten-ig/            🎨 Konten IG 4:5 + konten-ig.html + folder aset/ & referensi/
 ├── agent-hobo/                 🌡️ HOBO data logger + hobo.html
+├── agent-fakopp/               🌳 Fakopp (uji pohon & kayu) + fakopp.html
 ├── dashboard/                  📊 dokumentasi + dashboard.html (frontend hub)
 └── _arsip-latihan/             🗑️ file latihan lama (tidak dipakai)
 ```
@@ -44,6 +46,7 @@ ai-agent/
 | Market Penetration | `mesin_penetrasi.py` | `POST /penetrasi-market` | `agent-penetrasi/penetrasi.html` | [agent-penetrasi/](agent-penetrasi/agent-penetrasi.md) |
 | Konten Instagram 4:5 | `mesin_konten_ig.py` | `POST /konten-ig` | `agent-konten-ig/konten-ig.html` | [agent-konten-ig/](agent-konten-ig/agent-konten-ig.md) |
 | HOBO Data Logger | `mesin_hobo.py` | `POST /hobo-sales` | `agent-hobo/hobo.html` | [agent-hobo/](agent-hobo/agent-hobo.md) |
+| Fakopp (pohon & kayu) | `mesin_fakopp.py` | `POST /fakopp-sales` | `agent-fakopp/fakopp.html` | [agent-fakopp/](agent-fakopp/agent-fakopp.md) |
 | Dashboard (hub) | — | — | `dashboard/dashboard.html` | [dashboard/](dashboard/dashboard.md) |
 
 ## Cara update singkat

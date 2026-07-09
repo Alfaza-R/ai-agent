@@ -1,0 +1,274 @@
+"""
+Mesin AI multi-agent untuk tim SALES & SERVICE produk FAKOPP (alat uji pohon & kayu).
+
+Fakopp = alat non-destruktif berbasis akustik untuk arborikultur (deteksi busuk/rongga,
+stabilitas pohon) & industri kayu (grading mutu/MOE). Mirip pipeline HOBO. Agent Product
+mengecek website Fakopp via Google Search grounding.
+
+Pipeline:
+  Reader Teks -> Reader Visual -> Product (cek web Fakopp) -> Technical -> Service
+    -> Checker (KOORDINATOR, loop maks 2) -> Flow (Mermaid) -> Result (awam + technical)
+"""
+import re
+import os
+import base64
+import binascii
+
+from mesin_agent import client
+
+try:
+    from google.genai import types
+except Exception:
+    types = None
+
+MODEL = "gemini-3.1-flash-lite"
+
+# Website acuan Agent Product (bisa diubah via Secret; tambah distributor bila ada)
+FAKOPP_SITES = os.getenv("FAKOPP_SITES", "fakopp.com").strip()
+
+
+def _gen(prompt, file_bytes=None, mime=None):
+    contents = [prompt]
+    if file_bytes and types is not None:
+        contents.append(types.Part.from_bytes(data=file_bytes, mime_type=mime or "image/png"))
+    resp = client.models.generate_content(model=MODEL, contents=contents)
+    return (resp.text or "").strip()
+
+
+def _gen_search(prompt):
+    if types is not None:
+        try:
+            cfg = types.GenerateContentConfig(tools=[types.Tool(google_search=types.GoogleSearch())])
+            resp = client.models.generate_content(model=MODEL, contents=[prompt], config=cfg)
+            return (resp.text or "").strip()
+        except Exception:
+            pass
+    return _gen(prompt)
+
+
+def _json(txt, fallback):
+    import json
+    t = re.sub(r"```json|```", "", txt or "").strip()
+    try:
+        d = json.loads(t)
+        return d if isinstance(d, dict) else fallback
+    except Exception:
+        return fallback
+
+
+# ── Agent 1: Reader teks ──────────────────────────────────────────────
+def _agent_reader_teks(chat):
+    if not chat:
+        return "(Tidak ada teks chat dari customer.)"
+    prompt = (
+        "Kamu Agent Reader (teks) untuk tim sales & service alat FAKOPP (uji pohon & kayu). Baca chat customer, lalu "
+        "ekstrak SEMUA info penting secara terstruktur (poin '-'): tujuan pengujian (deteksi busuk/rongga batang, "
+        "stabilitas pohon/risiko tumbang, grading mutu kayu/log, estimasi MOE/kekakuan, riset), objek uji (pohon "
+        "berdiri + spesies, log/gelondongan, kayu gergajian), lokasi & lingkungan, jumlah pohon/titik/sampel, "
+        "konteks (inspeksi keselamatan, tata kota, kehutanan, QC industri), kebutuhan software/pelatihan/kalibrasi, "
+        "budget/timeline bila ada, serta hal yang ambigu. JANGAN menyimpulkan solusi, hanya rangkum yang tertulis.\n\n"
+        "=== CHAT CUSTOMER ===\n" + chat
+    )
+    return _gen(prompt)
+
+
+# ── Agent 2: Reader visual ────────────────────────────────────────────
+def _agent_reader_visual(file_bytes, mime):
+    if not file_bytes:
+        return "(Tidak ada gambar/datasheet/PDF dari customer.)"
+    prompt = (
+        "Kamu Agent Reader (visual) untuk tim FAKOPP. Baca gambar/PDF/datasheet terlampir. Ekstrak info terstruktur "
+        "(poin '-'): jenis dokumen (foto pohon/lokasi, kondisi batang, foto log/kayu, datasheet, hasil uji, dll), "
+        "objek uji & kondisi terlihat (retak, luka, pembusukan, kemiringan), spesies bila tampak, skala/dimensi, "
+        "label/anotasi penting. Kalau ada bagian tidak terbaca, katakan jujur. JANGAN mengarang."
+    )
+    return _gen(prompt, file_bytes, mime)
+
+
+# ── Agent Product (fokus Fakopp, cek website) ─────────────────────────
+def _agent_product(info, koreksi=""):
+    fb = ("\n\n=== KOREKSI DARI CHECKER (WAJIB dipatuhi) ===\n" + koreksi) if koreksi else ""
+    prompt = (
+        "Kamu Agent Product untuk produk FAKOPP. Berdasarkan kebutuhan (dari Reader) di bawah, rekomendasikan produk "
+        "Fakopp yang tepat untuk tiap kebutuhan.\n"
+        "UTAMAKAN mencari & memverifikasi dari website Fakopp: " + FAKOPP_SITES + ". "
+        "Contoh lini produk Fakopp (verifikasi & sesuaikan): ArborSonic 3D Acoustic Tomograph (deteksi busuk/rongga "
+        "batang), DynaRoot Dynamic Root Stability (uji stabilitas/risiko tumbang), Microsecond Timer (stress wave "
+        "timer untuk deteksi kerusakan & indikasi kekakuan/MOE kayu & log), serta alat/aksesori & software terkait.\n"
+        "Untuk tiap rekomendasi: nama produk + fungsi + kenapa cocok dengan kebutuhan. Sebutkan aksesori/software/"
+        "sensor bila perlu.\n"
+        "Produk HARUS sesuai kebutuhan Reader (mis. kebutuhan 'stabilitas pohon' -> DynaRoot, bukan tomograph). "
+        "Jangan mengarang model/seri yang tidak kamu yakini; kalau ragu sebut kategori & tandai 'perlu verifikasi'.\n\n"
+        "=== KEBUTUHAN (DARI READER) ===\n" + info + fb
+    )
+    return _gen_search(prompt)
+
+
+# ── Agent Technical (metode ukur, prosedur, kebutuhan alat) ───────────
+def _agent_technical(info, produk, koreksi=""):
+    fb = ("\n\n=== KOREKSI DARI CHECKER (WAJIB dipatuhi) ===\n" + koreksi) if koreksi else ""
+    prompt = (
+        "Kamu Agent Technical FAKOPP. Dari kebutuhan + produk terpilih di bawah, susun:\n"
+        "1. METODE & SETUP PENGUKURAN: cara kerja & prosedur di lapangan (mis. penempatan sensor keliling batang untuk "
+        "tomografi, jumlah titik sensor, pengukuran keliling/diameter, setup DynaRoot dgn inclinometer + anemometer, "
+        "atau pengukuran kecepatan gelombang untuk MOE).\n"
+        "2. BILL OF MATERIALS: daftar alat + sensor/probe + aksesori + software + estimasi jumlah unit. Bila jumlah "
+        "titik/pohon tidak pasti, beri estimasi + tulis asumsinya.\n"
+        "3. CATATAN TEKNIS: interpretasi hasil (mis. gambar tomografi, indeks stabilitas), faktor lapangan (cuaca, "
+        "spesies, kelembapan kayu), hal penting saat pengukuran.\n"
+        "Bahasa Indonesia teknis yang jelas. Jangan mengarang angka pasti; tandai estimasi.\n\n"
+        "=== KEBUTUHAN ===\n" + info + "\n\n=== PRODUK TERPILIH ===\n" + produk + fb
+    )
+    return _gen(prompt)
+
+
+# ── Agent Service (kalibrasi, software, training, interpretasi) ───────
+def _agent_service(info, produk, koreksi=""):
+    fb = ("\n\n=== KOREKSI DARI CHECKER (WAJIB dipatuhi) ===\n" + koreksi) if koreksi else ""
+    prompt = (
+        "Kamu Agent Service untuk produk FAKOPP (after-sales). Dari kebutuhan + produk di bawah, berikan info service "
+        "relevan:\n"
+        "- KALIBRASI & PERAWATAN: perlu kalibrasi/verifikasi berkala? cara rawat sensor/probe agar akurat & awet.\n"
+        "- SOFTWARE: setup & penggunaan software (mis. ArborSonic 3D, DynaRoot), ekspor & interpretasi hasil/laporan.\n"
+        "- TRAINING: kebutuhan pelatihan pengukuran & pembacaan hasil (penting karena interpretasi butuh keahlian).\n"
+        "- TROUBLESHOOTING: masalah umum (sensor tidak terbaca, hasil aneh, koneksi) + langkah diagnosa.\n"
+        "- GARANSI: umum untuk produk Fakopp + saran (konfirmasi kebijakan spesifik ke distributor).\n"
+        "Kalau chat tidak menyangkut service, cukup beri tips singkat setup, kalibrasi & interpretasi. "
+        "Jangan mengarang kebijakan garansi spesifik.\n\n"
+        "=== KEBUTUHAN ===\n" + info + "\n\n=== PRODUK ===\n" + produk + fb
+    )
+    return _gen(prompt)
+
+
+# ── Agent Checker (KOORDINATOR) ───────────────────────────────────────
+def _agent_checker_all(teks_info, visual_info, produk, teknis, service):
+    prompt = (
+        "Kamu Agent Checker (KOORDINATOR) untuk tim FAKOPP. Pastikan SEMUA hasil agent SALING KONSISTEN dan sesuai "
+        "apa yang dibaca Reader. Reader adalah acuan kebenaran kebutuhan customer.\n\n"
+        "Periksa:\n"
+        "- Apakah PRODUK Fakopp yang direkomendasikan benar-benar sesuai TUJUAN uji Reader? (mis. tujuan stabilitas "
+        "pohon -> DynaRoot; deteksi busuk -> ArborSonic Tomograph; grading kayu/MOE -> Microsecond Timer). Salah "
+        "pasang produk = tidak konsisten.\n"
+        "- Apakah TECHNICAL (metode/BOM) sesuai kebutuhan & produk?\n"
+        "- Apakah SERVICE relevan dengan konteks?\n"
+        "- Kontradiksi antar agent atau info yang miss/ambigu?\n\n"
+        "Kalau ADA yang tidak sesuai, tulis INSTRUKSI KOREKSI spesifik untuk agent terkait.\n\n"
+        "Kembalikan HANYA JSON valid (tanpa backtick):\n"
+        "{\"konsisten\": true/false, \"koreksi_product\":\"(kosong bila benar)\", \"koreksi_technical\":\"(kosong bila benar)\", "
+        "\"koreksi_service\":\"(kosong bila benar)\", \"inkonsistensi\":[\"...\"], \"pertanyaan_klarifikasi\":[\"...\"], "
+        "\"info_terverifikasi\":\"ringkasan kebutuhan final yang sudah selaras\"}\n\n"
+        "=== READER TEKS ===\n" + teks_info +
+        "\n\n=== READER VISUAL ===\n" + visual_info +
+        "\n\n=== HASIL PRODUCT ===\n" + produk +
+        "\n\n=== HASIL TECHNICAL ===\n" + teknis +
+        "\n\n=== HASIL SERVICE ===\n" + service
+    )
+    return _json(_gen(prompt), {
+        "konsisten": True, "koreksi_product": "", "koreksi_technical": "", "koreksi_service": "",
+        "inkonsistensi": [], "pertanyaan_klarifikasi": [],
+        "info_terverifikasi": teks_info + "\n" + visual_info,
+    })
+
+
+# ── Agent Flow (flowchart Mermaid) ────────────────────────────────────
+def _agent_flow(teknis):
+    prompt = (
+        "Kamu Agent Flow. Dari deskripsi metode/teknis di bawah, buat DIAGRAM ALUR (flowchart) proses pengukuran "
+        "FAKOPP dalam sintaks MermaidJS.\n"
+        "Aturan:\n"
+        "- Baris pertama WAJIB: flowchart TD  (boleh LR bila lebih pas).\n"
+        "- Node = tahap/komponen (objek uji, sensor, alat, software, hasil/laporan, dll). Pakai ID pendek + label "
+        "dalam kurung siku, mis. A1[ArborSonic 3D]. HINDARI tanda kutip, koma, titik dua, kurung bulat, karakter "
+        "khusus di label.\n"
+        "- Edge = urutan proses/aliran data; beri label singkat bila perlu.\n"
+        "- Maksimal ~15 node, ringkas & jelas.\n"
+        "- Kembalikan HANYA kode Mermaid (tanpa backtick, tanpa penjelasan).\n\n"
+        "=== METODE/TEKNIS ===\n" + teknis
+    )
+    out = _gen(prompt)
+    return re.sub(r"```mermaid|```", "", out or "").strip()
+
+
+# ── Agent Result (2 output) ───────────────────────────────────────────
+def _agent_result(info, inkon, tanya, produk, teknis, service):
+    prompt = (
+        "Kamu Agent Result untuk tim sales & service FAKOPP. Berdasarkan SELURUH data di bawah, buat DUA output "
+        "Bahasa Indonesia:\n"
+        "1. output_awam: penjelasan singkat + rekomendasi balasan untuk SALES (bahasa sederhana, siap dipakai membalas "
+        "customer; boleh sebut produk Fakopp secara umum + poin service bila relevan).\n"
+        "2. output_technical: rangkuman teknis mendetail untuk tim teknik/service (produk Fakopp + model, metode/BOM, "
+        "catatan kalibrasi/software/training, interpretasi hasil, dan pertanyaan teknis).\n"
+        "Sertakan pertanyaan klarifikasi bila ada. JANGAN mengarang di luar data.\n\n"
+        "Kembalikan HANYA JSON valid (tanpa backtick): {\"output_awam\":\"...\", \"output_technical\":\"...\"}\n\n"
+        "=== INFO TERVERIFIKASI ===\n" + info +
+        "\n\n=== INKONSISTENSI ===\n" + ("; ".join(map(str, inkon)) or "-") +
+        "\n\n=== PERTANYAAN KLARIFIKASI ===\n" + ("; ".join(map(str, tanya)) or "-") +
+        "\n\n=== PRODUK ===\n" + produk +
+        "\n\n=== TEKNIS ===\n" + teknis +
+        "\n\n=== SERVICE ===\n" + service
+    )
+    return _json(_gen(prompt), {"output_awam": "", "output_technical": ""})
+
+
+def analisa_fakopp(chat, image_base64="", image_mime="image/png", riwayat=""):
+    chat = (chat or "").strip()
+    riwayat = (riwayat or "").strip()
+    file_bytes = None
+    mime = None
+
+    if riwayat:
+        chat_ctx = ("=== RIWAYAT PERCAKAPAN SEBELUMNYA ===\n" + riwayat +
+                    "\n\n=== PESAN CUSTOMER TERBARU (fokus utama balasan) ===\n" + chat)
+    else:
+        chat_ctx = chat
+
+    if image_base64 and types is not None:
+        try:
+            file_bytes = base64.b64decode(image_base64)
+        except (binascii.Error, ValueError):
+            file_bytes = None
+        if file_bytes:
+            mime = image_mime or "image/png"
+
+    # 1) Reader (acuan kebenaran)
+    teks_info   = _agent_reader_teks(chat_ctx)
+    visual_info = _agent_reader_visual(file_bytes, mime)
+    sumber      = "TEKS:\n" + teks_info + "\n\nVISUAL:\n" + visual_info
+
+    # 2) Product + Technical + Service, lalu Checker koordinator (loop maks 2)
+    koreksi_p = koreksi_t = koreksi_s = ""
+    produk = teknis = service = ""
+    checker = {}
+    for _ in range(2):
+        produk  = _agent_product(sumber, koreksi_p)
+        teknis  = _agent_technical(sumber, produk, koreksi_t)
+        service = _agent_service(sumber, produk, koreksi_s)
+        checker = _agent_checker_all(teks_info, visual_info, produk, teknis, service)
+        if checker.get("konsisten", True):
+            break
+        koreksi_p = checker.get("koreksi_product", "") or ""
+        koreksi_t = checker.get("koreksi_technical", "") or ""
+        koreksi_s = checker.get("koreksi_service", "") or ""
+        if not (koreksi_p or koreksi_t or koreksi_s):
+            break
+
+    info  = checker.get("info_terverifikasi", "") or sumber
+    inkon = checker.get("inkonsistensi", []) or []
+    tanya = checker.get("pertanyaan_klarifikasi", []) or []
+
+    flow  = _agent_flow(teknis)
+    hasil = _agent_result(info, inkon, tanya, produk, teknis, service)
+
+    return {
+        "reader_teks":            teks_info,
+        "reader_visual":          visual_info,
+        "info_terverifikasi":     info,
+        "inkonsistensi":          inkon,
+        "pertanyaan_klarifikasi": tanya,
+        "produk":                 produk,
+        "teknis":                 teknis,
+        "service":                service,
+        "flow_mermaid":           flow,
+        "output_awam":            (hasil.get("output_awam") or "").strip(),
+        "output_technical":       (hasil.get("output_technical") or "").strip(),
+    }
