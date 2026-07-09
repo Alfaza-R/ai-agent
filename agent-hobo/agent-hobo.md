@@ -24,15 +24,19 @@ File (foto lokasi/datasheet/PDF) opsional — dibaca Gemini vision.
 4. **🔧 Technical** (`_agent_technical`) — setup/arsitektur pengukuran + Bill of Materials + catatan teknis.
 5. **🛠️ Service** (`_agent_service`) — troubleshooting, kalibrasi, software HOBOware/HOBOlink, garansi/perawatan.
 6. **✅ Checker — KOORDINATOR** (`_agent_checker_all`) — cek Product/Technical/Service vs Reader; bila tak selaras → kirim koreksi → agent ulang (loop maks 2x).
-7. **🗺️ Flow** (`_agent_flow`) — MermaidJS flowchart alur pengukuran.
-8. **🎯 Result** (`_agent_result`) — 2 output (awam untuk sales, teknis untuk tim teknik/service).
+7. **🔄 Compare** (`_agent_compare`) — cari produk ALTERNATIF merek lain yang setara (Campbell, Lascar, Testo, dll) via web → tabel banding. Supaya sales punya opsi selain HOBO.
+8. **💰 Budget** (`_agent_budget`) — estimasi biaya dari Product + Compare → **2 sub-output**: `modal` (harga beli Taharica sbg supplier) & `penawaran` (harga jual ke customer). **Estimasi kasar** berbasis harga pasar + asumsi diskon/margin eksplisit; wajib diverifikasi.
+9. **🗺️ Flow** (`_agent_flow`) — MermaidJS flowchart alur pengukuran.
+10. **🎯 Result** (`_agent_result`) — **3 output**: sales versi HOBO, sales versi produk lain, teknis.
 
 ## Output (JSON)
 ```json
 { "reader_teks","reader_visual","info_terverifikasi","inkonsistensi":[],
-  "pertanyaan_klarifikasi":[],"produk","teknis","service","flow_mermaid",
-  "output_awam","output_technical" }
+  "pertanyaan_klarifikasi":[],"produk","teknis","service","compare",
+  "budget_modal","budget_penawaran","flow_mermaid",
+  "output_awam_hobo","output_awam_lain","output_technical" }
 ```
+Catatan: budget = **estimasi**, AI tidak tahu harga beli/margin asli Taharica.
 
 ## Konfigurasi
 - `HOBO_SITES` (Secret, default `onsetcomp.com, loggerindo.com`) — website acuan Agent Product.

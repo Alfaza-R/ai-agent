@@ -187,25 +187,70 @@ def _agent_flow(teknis):
     return re.sub(r"```mermaid|```", "", out or "").strip()
 
 
-# ── Agent Result (2 output: awam & teknis) ────────────────────────────
-def _agent_result(info, inkon, tanya, produk, teknis, service):
+# ── Agent Compare (cari produk alternatif merek lain) ─────────────────
+def _agent_compare(info, produk):
     prompt = (
-        "Kamu Agent Result untuk tim sales & service HOBO. Berdasarkan SELURUH data di bawah, buat DUA output Bahasa "
+        "Kamu Agent Compare untuk tim sales HOBO. Berdasarkan kebutuhan + produk HOBO yang direkomendasikan di bawah, "
+        "cari produk ALTERNATIF dari MEREK LAIN yang fungsinya mirip / sama persis untuk tiap kebutuhan (supaya sales "
+        "punya opsi selain HOBO).\n"
+        "Cari & verifikasi di web. Contoh merek pembanding (sesuaikan dengan parameter): Campbell Scientific, Lascar "
+        "Electronics, Elitech, Testo, Extech, Dwyer, Vaisala, Tinytag/Gemini, Omega, dll.\n"
+        "Untuk tiap produk HOBO, beri 1-2 padanan merek lain + model + kenapa setara. Buat juga TABEL Markdown: "
+        "Kebutuhan | Produk HOBO | Alternatif (merek+model) | Perbedaan utama (fitur/akurasi/konektivitas).\n"
+        "Realistis; jangan mengarang model. Kalau ragu, sebut kategori + tandai 'perlu verifikasi'.\n\n"
+        "=== KEBUTUHAN ===\n" + info + "\n\n=== PRODUK HOBO TERPILIH ===\n" + produk
+    )
+    return _gen_search(prompt)
+
+
+# ── Agent Budget (estimasi harga modal & penawaran) ───────────────────
+def _agent_budget(info, produk, compare):
+    prompt = (
+        "Kamu Agent Budget untuk Taharica (supplier/distributor alat ukur). Dari daftar produk HOBO + alternatif "
+        "(hasil Agent Compare) di bawah, buat ESTIMASI BIAYA.\n"
+        "PENTING: kamu TIDAK tahu harga beli/margin internal Taharica yang sebenarnya. Buat estimasi KASAR berbasis "
+        "harga pasar/list dari web, lalu terapkan ASUMSI yang kamu sebutkan eksplisit. Selalu beri RENTANG harga, "
+        "sebut mata uang (USD/IDR), dan tandai '(estimasi, wajib diverifikasi)'. Jangan mengarang angka pasti.\n"
+        "Asumsi default (sebutkan & boleh disesuaikan): harga modal ≈ harga list dikurangi diskon distributor ~25-40%; "
+        "harga penawaran ke customer ≈ harga modal + margin ~20-40% (plus catatan bea/kurs/qty bisa mengubah).\n\n"
+        "Hasilkan DUA bagian, mencakup produk HOBO DAN alternatif (buat tabel bila memungkinkan):\n"
+        "- modal: kisaran HARGA MODAL (biaya beli untuk Taharica sebagai supplier) per item + total kasar.\n"
+        "- penawaran: kisaran HARGA PENAWARAN ke customer (harga jual) per item + total kasar.\n\n"
+        "Kembalikan HANYA JSON valid (tanpa backtick): {\"modal\":\"...markdown...\", \"penawaran\":\"...markdown...\"}\n\n"
+        "=== KEBUTUHAN ===\n" + info +
+        "\n\n=== PRODUK HOBO ===\n" + produk +
+        "\n\n=== ALTERNATIF (COMPARE) ===\n" + compare
+    )
+    return _json(_gen_search(prompt), {"modal": "", "penawaran": ""})
+
+
+# ── Agent Result (3 output: sales HOBO, sales produk lain, teknis) ────
+def _agent_result(info, inkon, tanya, produk, teknis, service, compare, budget):
+    modal = (budget or {}).get("modal", "") or "-"
+    penawaran = (budget or {}).get("penawaran", "") or "-"
+    prompt = (
+        "Kamu Agent Result untuk tim sales & service HOBO. Berdasarkan SELURUH data di bawah, buat TIGA output Bahasa "
         "Indonesia:\n"
-        "1. output_awam: penjelasan singkat + rekomendasi balasan untuk SALES (bahasa sederhana, siap dipakai membalas "
-        "customer; boleh sebut produk HOBO secara umum + poin service bila relevan).\n"
-        "2. output_technical: rangkuman teknis mendetail untuk tim teknik/service (produk HOBO + model, setup/BOM, "
-        "catatan service/kalibrasi/software, protokol, dan pertanyaan teknis).\n"
-        "Sertakan pertanyaan klarifikasi bila ada. JANGAN mengarang di luar data.\n\n"
-        "Kembalikan HANYA JSON valid (tanpa backtick): {\"output_awam\":\"...\", \"output_technical\":\"...\"}\n\n"
+        "1. output_awam_hobo: rekomendasi balasan untuk SALES memakai produk HOBO (bahasa sederhana, siap dipakai "
+        "membalas customer; sebut produk HOBO + poin service + kisaran harga penawaran bila relevan).\n"
+        "2. output_awam_lain: rekomendasi balasan versi PRODUK ALTERNATIF (merek lain dari Agent Compare) sebagai opsi "
+        "kedua untuk customer (sebut merek+model alternatif + kelebihan/kekurangan singkat + kisaran harga penawaran).\n"
+        "3. output_technical: rangkuman teknis mendetail untuk tim teknik/service (produk HOBO + alternatif, setup/BOM, "
+        "service/kalibrasi/software, perbandingan teknis, dan ringkasan estimasi biaya modal vs penawaran).\n"
+        "Sertakan pertanyaan klarifikasi bila ada. Tandai angka harga sebagai estimasi. JANGAN mengarang di luar data.\n\n"
+        "Kembalikan HANYA JSON valid (tanpa backtick): "
+        "{\"output_awam_hobo\":\"...\", \"output_awam_lain\":\"...\", \"output_technical\":\"...\"}\n\n"
         "=== INFO TERVERIFIKASI ===\n" + info +
         "\n\n=== INKONSISTENSI ===\n" + ("; ".join(map(str, inkon)) or "-") +
         "\n\n=== PERTANYAAN KLARIFIKASI ===\n" + ("; ".join(map(str, tanya)) or "-") +
-        "\n\n=== PRODUK ===\n" + produk +
+        "\n\n=== PRODUK HOBO ===\n" + produk +
+        "\n\n=== ALTERNATIF (COMPARE) ===\n" + compare +
         "\n\n=== TEKNIS ===\n" + teknis +
-        "\n\n=== SERVICE ===\n" + service
+        "\n\n=== SERVICE ===\n" + service +
+        "\n\n=== ESTIMASI MODAL ===\n" + modal +
+        "\n\n=== ESTIMASI PENAWARAN ===\n" + penawaran
     )
-    return _json(_gen(prompt), {"output_awam": "", "output_technical": ""})
+    return _json(_gen(prompt), {"output_awam_hobo": "", "output_awam_lain": "", "output_technical": ""})
 
 
 def analisa_hobo(chat, image_base64="", image_mime="image/png", riwayat=""):
@@ -256,9 +301,13 @@ def analisa_hobo(chat, image_base64="", image_mime="image/png", riwayat=""):
     inkon = checker.get("inkonsistensi", []) or []
     tanya = checker.get("pertanyaan_klarifikasi", []) or []
 
-    # 3) Flow + Result
+    # 3) Compare (cari alternatif merek lain) + Budget (estimasi harga)
+    compare = _agent_compare(info, produk)
+    budget  = _agent_budget(info, produk, compare)
+
+    # 4) Flow + Result (3 output)
     flow  = _agent_flow(teknis)
-    hasil = _agent_result(info, inkon, tanya, produk, teknis, service)
+    hasil = _agent_result(info, inkon, tanya, produk, teknis, service, compare, budget)
 
     return {
         "reader_teks":            teks_info,
@@ -269,7 +318,11 @@ def analisa_hobo(chat, image_base64="", image_mime="image/png", riwayat=""):
         "produk":                 produk,
         "teknis":                 teknis,
         "service":                service,
+        "compare":                compare,
+        "budget_modal":           (budget.get("modal") or "").strip(),
+        "budget_penawaran":       (budget.get("penawaran") or "").strip(),
         "flow_mermaid":           flow,
-        "output_awam":            (hasil.get("output_awam") or "").strip(),
+        "output_awam_hobo":       (hasil.get("output_awam_hobo") or "").strip(),
+        "output_awam_lain":       (hasil.get("output_awam_lain") or "").strip(),
         "output_technical":       (hasil.get("output_technical") or "").strip(),
     }
