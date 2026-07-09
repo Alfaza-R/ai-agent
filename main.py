@@ -126,7 +126,8 @@ class PesananHOBO(BaseModel):
     chat: str = ""
     image_base64: str = ""
     image_mime: str = "image/png"
+    riwayat: str = ""             # transkrip percakapan sebelumnya (chat lanjutan)
 
 @app.post("/hobo-sales")
 def endpoint_hobo_sales(pesanan: PesananHOBO):
-    return analisa_hobo(pesanan.chat, pesanan.image_base64, pesanan.image_mime)
+    return analisa_hobo(pesanan.chat, pesanan.image_base64, pesanan.image_mime, pesanan.riwayat)

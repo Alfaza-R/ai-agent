@@ -208,10 +208,18 @@ def _agent_result(info, inkon, tanya, produk, teknis, service):
     return _json(_gen(prompt), {"output_awam": "", "output_technical": ""})
 
 
-def analisa_hobo(chat, image_base64="", image_mime="image/png"):
+def analisa_hobo(chat, image_base64="", image_mime="image/png", riwayat=""):
     chat = (chat or "").strip()
+    riwayat = (riwayat or "").strip()
     file_bytes = None
     mime = None
+
+    # Percakapan berlanjut: gabungkan riwayat + pesan terbaru sebagai konteks Reader.
+    if riwayat:
+        chat_ctx = ("=== RIWAYAT PERCAKAPAN SEBELUMNYA ===\n" + riwayat +
+                    "\n\n=== PESAN CUSTOMER TERBARU (fokus utama balasan) ===\n" + chat)
+    else:
+        chat_ctx = chat
 
     # Siapkan file (gambar / PDF) — opsional
     if image_base64 and types is not None:
@@ -222,8 +230,8 @@ def analisa_hobo(chat, image_base64="", image_mime="image/png"):
         if file_bytes:
             mime = image_mime or "image/png"
 
-    # 1) Reader (acuan kebenaran)
-    teks_info   = _agent_reader_teks(chat)
+    # 1) Reader (acuan kebenaran) — termasuk riwayat bila ada
+    teks_info   = _agent_reader_teks(chat_ctx)
     visual_info = _agent_reader_visual(file_bytes, mime)
     sumber      = "TEKS:\n" + teks_info + "\n\nVISUAL:\n" + visual_info
 

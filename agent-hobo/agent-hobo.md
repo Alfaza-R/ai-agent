@@ -9,9 +9,12 @@ Bantu tim sales & service memahami permintaan customer soal produk **HOBO (Onset
 
 ## Input (JSON)
 ```json
-{ "chat":"...chat customer...", "image_base64":"...", "image_mime":"image/png | application/pdf" }
+{ "chat":"...pesan customer terbaru...", "image_base64":"...", "image_mime":"image/png | application/pdf",
+  "riwayat":"transkrip percakapan sebelumnya (opsional, chat lanjutan)" }
 ```
 File (foto lokasi/datasheet/PDF) opsional — dibaca Gemini vision.
+
+**Chat mode (multi-turn):** frontend `hobo.html` = antarmuka chat 2 kolom (chat kiri, detail agent kanan, scroll independen, background mesh gradient, skematik bisa di-download PNG). Tiap kirim menyertakan `riwayat` agar balasan nyambung. `output_awam` = bubble balasan; `output_technical` + kartu per-agent (termasuk Service) + skematik di panel kanan.
 
 ## Pipeline (urutan)
 1. **🅰️ Reader Teks** (`_agent_reader_teks`) — ekstrak kebutuhan dari chat (parameter, lokasi, jumlah titik, interval, software, sales/service).
