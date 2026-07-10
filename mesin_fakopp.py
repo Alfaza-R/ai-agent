@@ -210,22 +210,43 @@ def _agent_compare(info, produk):
     return _gen_search(prompt)
 
 
-# ── Agent Budget (estimasi harga modal & penawaran) ───────────────────
-def _agent_budget(info, produk, compare):
+# ── Agent Riset Harga (search web real-time untuk harga pasar) ────────
+def _agent_harga_riset(produk, compare):
     prompt = (
-        "Kamu Agent Budget untuk Taharica (supplier/distributor alat ukur). Dari daftar produk Fakopp + alternatif "
-        "(hasil Agent Compare) di bawah, buat ESTIMASI BIAYA.\n"
-        "PENTING: kamu TIDAK tahu harga beli/margin internal Taharica yang sebenarnya. Buat estimasi KASAR berbasis "
-        "harga pasar/list dari web, lalu terapkan ASUMSI yang kamu sebutkan eksplisit. Selalu beri RENTANG harga, "
-        "sebut mata uang (USD/EUR/IDR), dan tandai '(estimasi, wajib diverifikasi)'. Jangan mengarang angka pasti. "
-        "Catatan: alat Fakopp/pesaing sering premium (ribuan sampai puluhan ribu USD/EUR) — hati-hati, beri rentang.\n"
-        "Asumsi default (sebutkan & boleh disesuaikan): harga modal ≈ harga list dikurangi diskon distributor ~20-35%; "
-        "harga penawaran ke customer ≈ harga modal + margin ~20-40% (plus catatan bea/kurs/qty).\n\n"
-        "Hasilkan DUA bagian, mencakup produk Fakopp DAN alternatif (buat tabel bila memungkinkan):\n"
-        "- modal: kisaran HARGA MODAL (biaya beli untuk Taharica sebagai supplier) per item + total kasar.\n"
-        "- penawaran: kisaran HARGA PENAWARAN ke customer (harga jual) per item + total kasar.\n\n"
+        "Kamu Agent Riset Harga. Tugasmu MENCARI HARGA PASAR TERKINI (real, hari ini) dari WEB untuk SETIAP produk di "
+        "bawah — baik produk Fakopp maupun alternatif merek lain.\n"
+        "Untuk tiap produk cari: harga jual/list ke END-USER, mata uang aslinya (USD/EUR/dll), dan sumber/domain bila "
+        "ada (toko resmi, distributor, marketplace B2B).\n"
+        "PENTING: alat uji pohon/kayu ini PREMIUM (sering ribuan sampai puluhan ribu USD/EUR). JANGAN menebak terlalu "
+        "murah. Kalau angka pasti tak ketemu, beri RENTANG realistis berdasar produk sekelas + tandai 'perkiraan'. "
+        "Konversikan kasar ke IDR (asumsi kurs USD≈Rp 16.000, EUR≈Rp 17.500 — sebutkan asumsimu).\n"
+        "Keluarkan daftar per produk: nama | harga pasar (mata uang asli) | ~Rp | sumber/catatan. Jujur soal "
+        "ketidakpastian; jangan mengarang angka pasti.\n\n"
+        "=== PRODUK FAKOPP ===\n" + produk +
+        "\n\n=== ALTERNATIF (COMPARE) ===\n" + compare
+    )
+    return _gen_search(prompt)
+
+
+# ── Agent Budget (estimasi modal & penawaran dari harga pasar) ────────
+def _agent_budget(info, produk, compare, harga):
+    prompt = (
+        "Kamu Agent Budget untuk Taharica (distributor alat ukur). Basiskan estimasi pada HARGA PASAR hasil riset di "
+        "bawah (jangan mengarang angka baru yang jauh berbeda).\n"
+        "LOGIKA HARGA (WAJIB, jangan sampai under-price):\n"
+        "- HARGA PENAWARAN ke customer ≈ HARGA PASAR end-user. Boleh sedikit di atas untuk layanan/garansi lokal. "
+        "JANGAN menetapkan penawaran JAUH DI BAWAH harga pasar.\n"
+        "- HARGA MODAL (biaya beli Taharica) = HARGA PENAWARAN DIKURANGI margin distributor ~20-35%. Jadi modal SELALU "
+        "LEBIH KECIL dari penawaran, dan penawaran mendekati harga pasar.\n"
+        "- Sanity check: modal < penawaran, penawaran tidak lebih rendah dari harga pasar tanpa alasan. Sebut mata uang "
+        "& konversi Rp. Beri RENTANG. Tandai '(estimasi, wajib diverifikasi)'. Catat: bea masuk, kurs, kuantitas, dan "
+        "kebijakan margin asli Taharica dapat mengubah angka.\n\n"
+        "Hasilkan DUA bagian (mencakup Fakopp DAN alternatif, buat tabel: produk | harga pasar | modal | penawaran):\n"
+        "- modal: kisaran harga beli Taharica per item + total kasar.\n"
+        "- penawaran: kisaran harga jual ke customer per item + total kasar.\n\n"
         "Kembalikan HANYA JSON valid (tanpa backtick): {\"modal\":\"...markdown...\", \"penawaran\":\"...markdown...\"}\n\n"
-        "=== KEBUTUHAN ===\n" + info +
+        "=== HARGA PASAR (HASIL RISET WEB) ===\n" + harga +
+        "\n\n=== KEBUTUHAN ===\n" + info +
         "\n\n=== PRODUK FAKOPP ===\n" + produk +
         "\n\n=== ALTERNATIF (COMPARE) ===\n" + compare
     )
@@ -301,7 +322,7 @@ def _agent_router(chat, riwayat, prev):
     return d
 
 
-def _bungkus(teks_info, visual_info, info, inkon, tanya, produk, teknis, service, compare, budget, flow, hasil, rute=None):
+def _bungkus(teks_info, visual_info, info, inkon, tanya, produk, teknis, service, compare, budget, flow, hasil, rute=None, harga=""):
     return {
         "reader_teks":            teks_info,
         "reader_visual":          visual_info,
@@ -312,6 +333,7 @@ def _bungkus(teks_info, visual_info, info, inkon, tanya, produk, teknis, service
         "teknis":                 teknis,
         "service":                service,
         "compare":                compare,
+        "harga_riset":            (harga or "").strip(),
         "budget_modal":           (budget.get("modal") or "").strip(),
         "budget_penawaran":       (budget.get("penawaran") or "").strip(),
         "flow_mermaid":           flow,
@@ -370,10 +392,11 @@ def analisa_fakopp(chat, image_base64="", image_mime="image/png", riwayat="", se
         inkon = checker.get("inkonsistensi", []) or []
         tanya = checker.get("pertanyaan_klarifikasi", []) or []
         compare = _agent_compare(info, produk)
-        budget  = _agent_budget(info, produk, compare)
+        harga   = _agent_harga_riset(produk, compare)
+        budget  = _agent_budget(info, produk, compare, harga)
         flow  = _agent_flow(teknis)
         hasil = _agent_result(info, inkon, tanya, produk, teknis, service, compare, budget)
-        return _bungkus(teks_info, visual_info, info, inkon, tanya, produk, teknis, service, compare, budget, flow, hasil)
+        return _bungkus(teks_info, visual_info, info, inkon, tanya, produk, teknis, service, compare, budget, flow, hasil, harga=harga)
 
     # ===== TURN LANJUTAN -> Router pilih agent =====
     rute = _agent_router(chat, riwayat, prev)
@@ -387,6 +410,7 @@ def analisa_fakopp(chat, image_base64="", image_mime="image/png", riwayat="", se
     teknis  = prev.get("teknis", "") or ""
     service = prev.get("service", "") or ""
     compare = prev.get("compare", "") or ""
+    harga   = prev.get("harga_riset", "") or ""
     budget  = {"modal": prev.get("budget_modal", "") or "", "penawaran": prev.get("budget_penawaran", "") or ""}
     info    = prev.get("info_terverifikasi", "") or ""
     inkon   = prev.get("inkonsistensi", []) or []
@@ -423,10 +447,11 @@ def analisa_fakopp(chat, image_base64="", image_mime="image/png", riwayat="", se
 
     if "compare" in agents:
         compare = _agent_compare(info, produk)
-    if "budget" in agents:
-        budget = _agent_budget(info, produk, compare)
+    if "budget" in agents or ("compare" in agents):
+        harga  = _agent_harga_riset(produk, compare)
+        budget = _agent_budget(info, produk, compare, harga)
     if "technical" in agents:
         flow = _agent_flow(teknis)
 
     hasil = _agent_result(info, inkon, tanya, produk, teknis, service, compare, budget, instr)
-    return _bungkus(teks_info, visual_info, info, inkon, tanya, produk, teknis, service, compare, budget, flow, hasil, rute)
+    return _bungkus(teks_info, visual_info, info, inkon, tanya, produk, teknis, service, compare, budget, flow, hasil, rute, harga)
