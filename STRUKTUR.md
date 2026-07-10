@@ -15,6 +15,7 @@ ai-agent/
 ├── mesin_konten_ig.py          ← mesin Konten Instagram 4:5   │
 ├── mesin_hobo.py               ← mesin HOBO data logger       │
 ├── mesin_fakopp.py             ← mesin Fakopp (pohon & kayu)  │
+├── mesin_hmp.py                ← mesin HMP (uji tanah)        │
 ├── Dockerfile, requirements.txt, README.md                   ┘
 │
 ├── agent-content-planner/      📝 dokumentasi Content Planner + Brief Checker
@@ -24,6 +25,7 @@ ai-agent/
 ├── agent-konten-ig/            🎨 Konten IG 4:5 + konten-ig.html + folder aset/ & referensi/
 ├── agent-hobo/                 🌡️ HOBO data logger + hobo.html
 ├── agent-fakopp/               🌳 Fakopp (uji pohon & kayu) + fakopp.html
+├── agent-hmp/                  🏗️ HMP (uji tanah) + hmp.html
 ├── dashboard/                  📊 dokumentasi + dashboard.html (frontend hub)
 └── _arsip-latihan/             🗑️ file latihan lama (tidak dipakai)
 ```
@@ -47,6 +49,7 @@ ai-agent/
 | Konten Instagram 4:5 | `mesin_konten_ig.py` | `POST /konten-ig` | `agent-konten-ig/konten-ig.html` | [agent-konten-ig/](agent-konten-ig/agent-konten-ig.md) |
 | HOBO Data Logger | `mesin_hobo.py` | `POST /hobo-sales` | `agent-hobo/hobo.html` | [agent-hobo/](agent-hobo/agent-hobo.md) |
 | Fakopp (pohon & kayu) | `mesin_fakopp.py` | `POST /fakopp-sales` | `agent-fakopp/fakopp.html` | [agent-fakopp/](agent-fakopp/agent-fakopp.md) |
+| HMP (uji tanah) | `mesin_hmp.py` | `POST /hmp-sales` | `agent-hmp/hmp.html` | [agent-hmp/](agent-hmp/agent-hmp.md) |
 | Dashboard (hub) | — | — | `dashboard/dashboard.html` | [dashboard/](dashboard/dashboard.md) |
 
 ## Cara update singkat
