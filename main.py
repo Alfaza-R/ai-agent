@@ -9,6 +9,7 @@ from mesin_konten_ig import buat_konten_ig  # multi-agent konten Instagram 4:5
 from mesin_hobo import analisa_hobo    # asisten sales & service HOBO data logger
 from mesin_fakopp import analisa_fakopp  # asisten sales & service alat Fakopp (pohon & kayu)
 from mesin_hmp import analisa_hmp      # asisten sales & service alat HMP (uji tanah/geoteknik)
+from mesin_timbangan import analisa_timbangan  # asisten sales & service timbangan (timbanganindonesia.com)
 
 # Bikin aplikasi backend-nya
 app = FastAPI()
@@ -158,3 +159,15 @@ class PesananHMP(BaseModel):
 @app.post("/hmp-sales")
 def endpoint_hmp_sales(pesanan: PesananHMP):
     return analisa_hmp(pesanan.chat, pesanan.image_base64, pesanan.image_mime, pesanan.riwayat, pesanan.sebelumnya)
+
+# Pesanan asisten sales & service TIMBANGAN (timbanganindonesia.com)
+class PesananTimbangan(BaseModel):
+    chat: str = ""
+    image_base64: str = ""
+    image_mime: str = "image/png"
+    riwayat: str = ""
+    sebelumnya: dict | None = None
+
+@app.post("/timbangan-sales")
+def endpoint_timbangan_sales(pesanan: PesananTimbangan):
+    return analisa_timbangan(pesanan.chat, pesanan.image_base64, pesanan.image_mime, pesanan.riwayat, pesanan.sebelumnya)

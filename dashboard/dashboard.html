@@ -57,6 +57,7 @@ html, body { background: #0f1420 !important; }
   var LINK_HOBO             = "https://eknowledge.taharica.com/ai-hobo/";
   var LINK_FAKOPP           = "https://eknowledge.taharica.com/ai-fakopp/";
   var LINK_HMP              = "GANTI_DENGAN_URL_HALAMAN_HMP"; // mis. https://eknowledge.taharica.com/ai-hmp/
+  var LINK_TIMBANGAN        = "GANTI_DENGAN_URL_HALAMAN_TIMBANGAN"; // mis. https://eknowledge.taharica.com/ai-timbangan/
 
   // ===== Daftar agent =====
   var AGENTS = [
@@ -122,6 +123,13 @@ html, body { background: #0f1420 !important; }
       desc:"Sales & service alat uji daya dukung & pemadatan tanah (HMP — LWD/LFG, plate load test). Tempel chat customer → agent analisa, rekomendasi produk HMP (cek hmp-online.de), metode uji, service, compare & estimasi harga. Mode chat.",
       live:true,
       btn:{ text:"Buka HMP Assistant", url:LINK_HMP },
+    },
+    {
+      icon:"⚖️", bg:"rgba(99,102,241,.16)",
+      nama:"Timbangan Assistant",
+      desc:"Sales & service timbangan & load cell (counting, lantai, platform, truk, lab, gantung, dll). Tempel chat customer → agent analisa kapasitas/ketelitian, rekomendasi produk (cek timbanganindonesia.com), spesifikasi, tera/kalibrasi, compare & estimasi harga. Mode chat.",
+      live:true,
+      btn:{ text:"Buka Timbangan Assistant", url:LINK_TIMBANGAN },
     },
   ];
 
