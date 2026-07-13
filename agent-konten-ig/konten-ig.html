@@ -178,10 +178,11 @@ html, body { background:#0f1420 !important; }
     .then(function(data){
       st.textContent="";
       var slides=data.slides||[];
+      var genlabel = data.generative_aktif ? ("aktif ("+(data.generative_sumber||"ai")+")") : "nonaktif (template only)";
       var info='<div class="kig-info">📦 Aset GitHub: <b>'+data.jumlah_aset+'</b> · 🎨 Referensi: <b>'+data.jumlah_referensi
-        +'</b> · 🧷 Foto produk: <b>'+(data.ada_produk?"terlampir":"tidak")+'</b> · 🖼️ Generative AI: <b>'+(data.generative_aktif?"aktif":"nonaktif (template only)")+'</b>'
-        +((data.jumlah_aset===0 && !data.ada_produk)?'<br>⚠️ Belum ada aset & foto produk — slide pakai warna/gradient. Upload aset ke GitHub atau lampirkan foto produk.':'')
-        +(data.ada_produk && !data.generative_aktif?'<br>ℹ️ Generative belum aktif — foto produk ditempel langsung ke layout (tidak diolah AI). Aktifkan via Secret GEMINI_IMAGE_MODEL untuk hasil generate.':'')
+        +'</b> · 🧷 Foto produk: <b>'+(data.ada_produk?"terlampir":"tidak")+'</b> · 🖼️ Generative: <b>'+genlabel+'</b>'
+        +((data.jumlah_aset===0 && !data.ada_produk && !data.generative_aktif)?'<br>⚠️ Belum ada aset & foto produk — slide pakai warna/gradient. Upload aset ke GitHub atau lampirkan foto produk.':'')
+        +(data.generative_sumber==="pollinations"?'<br>ℹ️ Background di-generate gratis via Pollinations (produk asli tetap ditempel akurat). Untuk hasil paling menyatu, aktifkan Gemini image (butuh billing) via Secret GEMINI_IMAGE_MODEL.':'')
         +'</div>';
       if(!slides.length){ extraEl.innerHTML=info+'<div class="kig-info">Tidak ada slide dihasilkan. Coba perjelas brief.</div>'; return; }
 

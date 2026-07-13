@@ -40,8 +40,13 @@ Render 4:5 final dilakukan **di browser** (html2canvas) → unduh PNG per slide 
 - Backend baca folder repo via GitHub API (repo public, tanpa token): `KONTEN_GH_REPO` (default `Alfaza-R/ai-agent`), `KONTEN_GH_BRANCH` (`main`).
 - Tambah gambar = upload ke folder (web GitHub / git push). Tidak perlu re-deploy.
 
-## Generative (opsional, berbayar)
-- Background bertipe `generate` dibuat via model image Gemini **hanya bila** Secret `GEMINI_IMAGE_MODEL` diisi (mis. model image berbayar). Kalau kosong → fallback gradient. Jadi template tetap jalan gratis.
+## Generative background
+Slide `bg_tipe: generate` diisi berurutan:
+1. **Gemini image** (`GEMINI_IMAGE_MODEL`) — paling menyatu, tapi **butuh billing** (free tier = kuota 0, sudah dites 2026-07: error `limit: 0`).
+2. **Pollinations.ai** (GRATIS, tanpa key) — default aktif (`POLLINATIONS_ENABLE=1`), text-to-image FLUX 1080x1350. Foto produk asli tetap ditempel terpisah (akurat).
+3. Fallback: foto produk sebagai bg → gradient.
+
+Response: `generative_aktif`, `generative_sumber` ("gemini"/"pollinations"). Matikan Pollinations via Secret `POLLINATIONS_ENABLE=0`.
 
 ## Model
 Gemini `gemini-3.1-flash-lite` (text + vision). Image gen opsional via `GEMINI_IMAGE_MODEL`.

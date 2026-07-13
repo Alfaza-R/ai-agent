@@ -113,6 +113,30 @@ def _gen_image(prompt, input_images=None):
     return ""
 
 
+# Pollinations.ai — generate background GRATIS (tanpa API key). Text-to-image (FLUX).
+POLLINATIONS_ON = os.getenv("POLLINATIONS_ENABLE", "1").strip() not in ("0", "false", "")
+
+
+def _gen_image_pollinations(prompt, seed=None):
+    """Generate gambar 4:5 via Pollinations.ai (gratis). Return base64 PNG atau ''."""
+    if not POLLINATIONS_ON:
+        return ""
+    try:
+        p = (prompt or "instagram content background, minimal, high quality").strip()[:600]
+        q = requests.utils.quote(p, safe="")
+        url = ("https://image.pollinations.ai/prompt/" + q +
+               "?width=1080&height=1350&nologo=true&model=flux")
+        if seed is not None:
+            url += "&seed=" + str(seed)
+        r = requests.get(url, timeout=120)
+        ct = r.headers.get("Content-Type", "")
+        if r.status_code < 400 and r.content and ct.startswith("image"):
+            return base64.b64encode(r.content).decode()
+    except Exception:
+        pass
+    return ""
+
+
 # ── Agent Detailing ───────────────────────────────────────────────────
 def _agent_detailing(brief, jumlah, koreksi="", produk_img=None):
     fb = ("\n\n=== KOREKSI DARI CHECKER (WAJIB) ===\n" + koreksi) if koreksi else ""
@@ -234,17 +258,24 @@ def _finalize_slides(layout, aset_list, produk_img=None, ref_images=None):
         }
         # Generative background (opsional, hanya bila model image diset) — dikondisikan foto produk + referensi
         if bg_tipe == "generate":
+            prompt_bg = (s.get("bg_generate_prompt") or "").strip()
+            # 1) Gemini image (paling nyatu, bila GEMINI_IMAGE_MODEL diisi + billing aktif)
             kondisi = ([produk_img] if produk_img else []) + list(ref_images or [])[:3]
             b64 = _gen_image(
-                (s.get("bg_generate_prompt") or "") +
-                " — vertical 4:5 Instagram content background. Jika ada foto produk terlampir, tampilkan produk itu "
-                "secara akurat (jangan mengubah bentuk produk), selaraskan gaya dengan gambar referensi.",
+                prompt_bg + " — vertical 4:5 Instagram content background. Jika ada foto produk terlampir, tampilkan "
+                "produk itu secara akurat (jangan mengubah bentuk produk), selaraskan gaya dengan gambar referensi.",
                 kondisi,
             )
+            # 2) Pollinations (GRATIS) — generate background dari teks (produk ditempel terpisah via aset_tempel)
+            if not b64:
+                b64 = _gen_image_pollinations(
+                    prompt_bg + ", vertical 4:5 social media background, clean, modern, high quality, no text"
+                )
             if b64:
                 slide["bg_generate_b64"] = b64
+                slide["bg_sumber"] = "ai"
             elif produk_img:
-                # Fallback tanpa model image: pakai foto produk asli sebagai background
+                # Fallback terakhir: pakai foto produk asli sebagai background
                 slide["bg_tipe"] = "aset"
                 slide["bg_pakai_produk"] = True
             else:
@@ -317,5 +348,6 @@ def buat_konten_ig(brief="", jumlah=0, produk_base64="", produk_mime="image/png"
         "jumlah_aset":     len(aset_list) - (1 if produk_img else 0),
         "jumlah_referensi": len(ref_list),
         "ada_produk":      bool(produk_img),
-        "generative_aktif": bool(IMG_MODEL),
+        "generative_aktif": bool(IMG_MODEL) or POLLINATIONS_ON,
+        "generative_sumber": ("gemini" if IMG_MODEL else ("pollinations" if POLLINATIONS_ON else "")),
     }
