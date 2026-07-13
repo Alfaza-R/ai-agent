@@ -64,24 +64,33 @@ html, body { background:#0f1420 !important; }
 .kig-card { background:#161c2a; border:1px solid #273044; border-radius:14px; padding:14px; display:flex; flex-direction:column; align-items:center; gap:10px; }
 .kig-thumb { width:259px; height:324px; overflow:hidden; border-radius:8px; border:1px solid #2a3344; position:relative; }
 
-/* SLIDE ASLI 1080x1350 (di-scale untuk preview) */
-.kig-slide { width:1080px; height:1350px; position:relative; overflow:hidden; transform:scale(.24); transform-origin:top left; display:flex; flex-direction:column; }
+/* SLIDE ASLI 1080x1350 (di-scale untuk preview) — TEMPLATE BER-BRAND */
+.kig-slide { width:1080px; height:1350px; position:relative; overflow:hidden; transform:scale(.24); transform-origin:top left; font-family:'Poppins', system-ui, sans-serif; }
 .kig-bg { position:absolute; inset:0; z-index:0; }
 .kig-bg img { width:100%; height:100%; object-fit:cover; display:block; }
-.kig-overlay { position:absolute; inset:0; z-index:1; background:linear-gradient(180deg, rgba(0,0,0,.15), rgba(0,0,0,.55)); }
-.kig-zone { position:relative; z-index:2; flex:1; display:flex; flex-direction:column; padding:0 90px; }
-.kig-zone.top { justify-content:flex-start; padding-top:100px; }
-.kig-zone.mid { justify-content:center; }
-.kig-zone.bot { justify-content:flex-end; padding-bottom:110px; }
-.kig-tempel { position:relative; z-index:2; align-self:center; max-width:70%; max-height:40%; margin:auto 0; object-fit:contain; }
-.kig-tx { margin:0 0 24px; line-height:1.18; font-family:'Poppins', system-ui, sans-serif; }
-.kig-tx.headline { font-weight:800; }
-.kig-tx.sub { font-weight:600; }
-.kig-tx.body { font-weight:500; }
-.kig-tx.cta { font-weight:700; display:inline-block; padding:18px 34px; border-radius:60px; background:#ec4899; align-self:flex-start; }
-.kig-sz-besar { font-size:76px; }
-.kig-sz-sedang { font-size:46px; }
-.kig-sz-kecil { font-size:30px; }
+.kig-ov { position:absolute; inset:0; z-index:1; }
+/* Logo badge atas */
+.kig-logo { position:absolute; top:54px; left:0; right:0; z-index:3; display:flex; justify-content:center; }
+.kig-logo .badge { background:#fff; border-radius:18px; padding:16px 30px; display:flex; align-items:center; box-shadow:0 8px 24px rgba(0,0,0,.28); }
+.kig-logo img { height:76px; display:block; }
+.kig-logo .txt { font-weight:900; font-size:46px; letter-spacing:1px; }
+/* Konten teks (tengah-atas) */
+.kig-content { position:absolute; top:290px; left:0; right:0; z-index:3; padding:0 84px; text-align:center; }
+.kig-eyebrow { font-size:42px; font-weight:700; color:#fff; margin:0 0 6px; text-shadow:0 2px 10px rgba(0,0,0,.5); }
+.kig-headline { font-size:96px; font-weight:900; line-height:1.04; letter-spacing:-1px; margin:0; text-shadow:0 3px 16px rgba(0,0,0,.55); }
+.kig-subtitle { font-size:48px; font-weight:600; color:#f1f5f9; margin:14px 0 0; text-shadow:0 2px 10px rgba(0,0,0,.5); }
+.kig-body { font-size:36px; font-weight:500; color:#f1f5f9; line-height:1.4; margin:22px 0 0; text-shadow:0 2px 8px rgba(0,0,0,.5); }
+/* CTA pill */
+.kig-cta { position:absolute; left:0; right:0; bottom:196px; z-index:3; display:flex; justify-content:center; }
+.kig-cta span { font-size:40px; font-weight:800; padding:26px 54px; border-radius:70px; box-shadow:0 10px 26px rgba(0,0,0,.35); }
+/* Footer kontak */
+.kig-footer { position:absolute; left:0; right:0; bottom:0; z-index:3; height:132px; display:flex; align-items:center; justify-content:center; gap:44px; padding:0 60px; }
+.kig-footer .item { display:flex; align-items:center; gap:12px; color:#fff; font-size:28px; font-weight:600; }
+.kig-footer .item .ic { font-size:30px; }
+/* Dots halaman */
+.kig-dots { position:absolute; left:0; right:0; bottom:158px; z-index:3; display:flex; justify-content:center; gap:14px; }
+.kig-dots i { width:16px; height:16px; border-radius:50%; background:rgba(255,255,255,.45); display:block; }
+.kig-dots i.on { background:#fff; width:44px; border-radius:10px; }
 
 .kig-cap { font-size:12px; color:#94a3b8; text-align:center; }
 .kig-dl { background:#ec4899; color:#fff; border:none; font-family:inherit; font-weight:600; font-size:13px; padding:9px 16px; border-radius:9px; cursor:pointer; }
@@ -98,6 +107,17 @@ html, body { background:#0f1420 !important; }
 <script>
 (function () {
   var BACKEND_URL = "https://arapaza-ai-agent.hf.space";
+
+  // ===== BRAND (edit sesuai brand kamu) — dipakai template konten =====
+  var BRAND = {
+    name: "LOGGERINDO",
+    logoUrl: "",                       // isi URL logo PNG transparan (mis. GitHub raw). Kosong = pakai teks nama.
+    navy: "#12294d",                   // warna utama (dark)
+    gold: "#f2b705",                   // warna highlight & tombol CTA
+    textOnGold: "#12294d",             // warna teks di atas tombol CTA
+    contact: { phone:"0852-8571-1081", email:"sales@taharica.com", web:"loggerindo.com" }
+  };
+
   var produkB64="", produkMime="", produkDataUrl="";
   function esc(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 
@@ -109,39 +129,70 @@ html, body { background:#0f1420 !important; }
     reader.onload=function(){ produkDataUrl=(reader.result||"").toString(); produkB64=produkDataUrl.split(",")[1]||""; prev.src=produkDataUrl; prev.style.display="inline-block"; };
     reader.readAsDataURL(f);
   });
-  function zoneOf(p){ p=(p||"tengah").toLowerCase(); return p.indexOf("atas")===0?"top":(p.indexOf("bawah")===0?"bot":"mid"); }
-  function szClass(u){ u=(u||"sedang").toLowerCase(); return u.indexOf("besar")===0?"kig-sz-besar":(u.indexOf("kecil")===0?"kig-sz-kecil":"kig-sz-sedang"); }
-  function alignOf(a){ a=(a||"kiri").toLowerCase(); return a.indexOf("tengah")===0?"center":(a.indexOf("kanan")===0?"right":"left"); }
+  function hexA(h,a){ h=(h||"#000").replace("#",""); if(h.length===3){h=h[0]+h[0]+h[1]+h[1]+h[2]+h[2];}
+    var r=parseInt(h.substr(0,2),16)||0,g=parseInt(h.substr(2,2),16)||0,b=parseInt(h.substr(4,2),16)||0;
+    return "rgba("+r+","+g+","+b+","+a+")"; }
 
   function bgStyle(s){
-    if (s.bg_tipe==="warna") return "background:"+(s.bg_warna||"#111827")+";";
-    if (s.bg_tipe==="gradient"){ var g=s.bg_gradient||[]; return "background:linear-gradient(160deg,"+(g[0]||"#6d28d9")+","+(g[1]||"#2563eb")+");"; }
-    return "background:#111827;";
+    if (s.bg_tipe==="warna") return "background:"+(s.bg_warna||BRAND.navy)+";";
+    if (s.bg_tipe==="gradient"){ var g=s.bg_gradient||[]; return "background:linear-gradient(160deg,"+(g[0]||BRAND.navy)+","+(g[1]||"#1e3a8a")+");"; }
+    return "background:"+BRAND.navy+";";
   }
   function bgImgSrc(s){
     if (s.bg_generate_b64) return "data:image/png;base64,"+s.bg_generate_b64;
     if (s.bg_pakai_produk && produkDataUrl) return produkDataUrl;
-    if (s.bg_tipe==="aset" && s.bg_aset_url) return s.bg_aset_url;
+    if (s.tempel_pakai_produk && produkDataUrl) return produkDataUrl;
+    if (s.bg_aset_url) return s.bg_aset_url;
+    if (s.aset_tempel_url) return s.aset_tempel_url;
     return "";
   }
 
-  function slideHTML(s, i){
-    var zones = { top:[], mid:[], bot:[] };
+  function brandOverlay(){
+    return "background:linear-gradient(180deg,"+hexA(BRAND.navy,.62)+" 0%,"+hexA(BRAND.navy,.12)+" 34%,"
+      +hexA(BRAND.navy,.12)+" 50%,"+hexA(BRAND.navy,.86)+" 100%);";
+  }
+  function logoHTML(){
+    var inner = BRAND.logoUrl
+      ? '<img crossorigin="anonymous" src="'+BRAND.logoUrl+'">'
+      : '<span class="txt" style="color:'+BRAND.navy+'">'+esc(BRAND.name)+'</span>';
+    return '<div class="kig-logo"><div class="badge">'+inner+'</div></div>';
+  }
+  function footerHTML(){
+    var c=BRAND.contact||{}, items="";
+    if(c.phone) items+='<div class="item"><span class="ic">📞</span>'+esc(c.phone)+'</div>';
+    if(c.email) items+='<div class="item"><span class="ic">✉️</span>'+esc(c.email)+'</div>';
+    if(c.web)   items+='<div class="item"><span class="ic">🌐</span>'+esc(c.web)+'</div>';
+    return '<div class="kig-footer" style="background:'+hexA(BRAND.navy,.92)+'">'+items+'</div>';
+  }
+  function dotsHTML(i,total){
+    if(!total || total<=1) return "";
+    var d=""; for(var k=0;k<total;k++){ d+='<i class="'+(k===i?"on":"")+'"></i>'; }
+    return '<div class="kig-dots">'+d+'</div>';
+  }
+
+  function slideHTML(s, i, total){
+    var headline=[], sub=[], body=[], cta="";
     (s.teks||[]).forEach(function(t){
-      var cls = (t.peran||"body").toLowerCase();
-      zones[zoneOf(t.posisi)].push('<div class="kig-tx '+cls+' '+szClass(t.ukuran)+'" style="color:'+(t.warna||"#ffffff")+';text-align:'+alignOf(t.align)+';">'+esc(t.isi)+'</div>');
+      var p=(t.peran||"body").toLowerCase(), isi=esc(t.isi);
+      if(!isi) return;
+      if(p.indexOf("headline")===0) headline.push(isi);
+      else if(p.indexOf("sub")===0) sub.push(isi);
+      else if(p.indexOf("cta")===0) cta=isi;
+      else body.push(isi);
     });
+    var content='<div class="kig-content">';
+    if(headline.length) content+='<div class="kig-headline" style="color:'+BRAND.gold+'">'+headline.join("<br>")+'</div>';
+    if(sub.length)      content+='<div class="kig-subtitle">'+sub.join("<br>")+'</div>';
+    if(body.length)     content+='<div class="kig-body">'+body.join("<br>")+'</div>';
+    content+='</div>';
+    var ctaHTML = cta ? '<div class="kig-cta"><span style="background:'+BRAND.gold+';color:'+BRAND.textOnGold+'">'+cta+'</span></div>' : "";
+
     var src = bgImgSrc(s);
     var bg = src ? '<div class="kig-bg"><img crossorigin="anonymous" src="'+src+'"></div>'
                  : '<div class="kig-bg" style="'+bgStyle(s)+'"></div>';
-    var ov = s.overlay ? '<div class="kig-overlay"></div>' : '';
-    var tempelSrc = (s.tempel_pakai_produk && produkDataUrl) ? produkDataUrl : (s.aset_tempel_url || "");
-    var tempel = tempelSrc ? '<img class="kig-tempel" crossorigin="anonymous" src="'+tempelSrc+'">' : '';
-    return '<div class="kig-slide" id="slide-'+i+'">'+bg+ov
-      + '<div class="kig-zone top">'+zones.top.join("")+'</div>'
-      + tempel
-      + '<div class="kig-zone mid">'+zones.mid.join("")+'</div>'
-      + '<div class="kig-zone bot">'+zones.bot.join("")+'</div>'
+    return '<div class="kig-slide" id="slide-'+i+'">'
+      + bg + '<div class="kig-ov" style="'+brandOverlay()+'"></div>'
+      + logoHTML() + content + ctaHTML + dotsHTML(i,total) + footerHTML()
       + '</div>';
   }
 
@@ -188,7 +239,7 @@ html, body { background:#0f1420 !important; }
 
       slidesEl.insertAdjacentHTML("beforebegin", info);
       slidesEl.innerHTML = slides.map(function(s,i){
-        return '<div class="kig-card"><div class="kig-thumb">'+slideHTML(s,i)+'</div>'
+        return '<div class="kig-card"><div class="kig-thumb">'+slideHTML(s,i,slides.length)+'</div>'
           + '<div class="kig-cap">Slide '+(i+1)+' / '+slides.length+'</div>'
           + '<button class="kig-dl" data-i="'+i+'" type="button">⬇️ Unduh PNG</button></div>';
       }).join("");
