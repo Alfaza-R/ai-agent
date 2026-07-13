@@ -17,6 +17,7 @@ ai-agent/
 ├── mesin_fakopp.py             ← mesin Fakopp (pohon & kayu)  │
 ├── mesin_hmp.py                ← mesin HMP (uji tanah)        │
 ├── mesin_timbangan.py          ← mesin Timbangan             │
+├── mesin_loadcell.py           ← mesin Load Cell             │
 ├── Dockerfile, requirements.txt, README.md                   ┘
 │
 ├── agent-content-planner/      📝 dokumentasi Content Planner + Brief Checker
@@ -28,6 +29,7 @@ ai-agent/
 ├── agent-fakopp/               🌳 Fakopp (uji pohon & kayu) + fakopp.html
 ├── agent-hmp/                  🏗️ HMP (uji tanah) + hmp.html
 ├── agent-timbangan/            ⚖️ Timbangan + timbangan.html
+├── agent-loadcell/             🔩 Load Cell + loadcell.html
 ├── dashboard/                  📊 dokumentasi + dashboard.html (frontend hub)
 └── _arsip-latihan/             🗑️ file latihan lama (tidak dipakai)
 ```
@@ -53,6 +55,7 @@ ai-agent/
 | Fakopp (pohon & kayu) | `mesin_fakopp.py` | `POST /fakopp-sales` | `agent-fakopp/fakopp.html` | [agent-fakopp/](agent-fakopp/agent-fakopp.md) |
 | HMP (uji tanah) | `mesin_hmp.py` | `POST /hmp-sales` | `agent-hmp/hmp.html` | [agent-hmp/](agent-hmp/agent-hmp.md) |
 | Timbangan | `mesin_timbangan.py` | `POST /timbangan-sales` | `agent-timbangan/timbangan.html` | [agent-timbangan/](agent-timbangan/agent-timbangan.md) |
+| Load Cell | `mesin_loadcell.py` | `POST /loadcell-sales` | `agent-loadcell/loadcell.html` | [agent-loadcell/](agent-loadcell/agent-loadcell.md) |
 | Dashboard (hub) | — | — | `dashboard/dashboard.html` | [dashboard/](dashboard/dashboard.md) |
 
 ## Cara update singkat

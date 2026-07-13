@@ -79,6 +79,7 @@ html, body { background: #0f1420 !important; }
   var LINK_FAKOPP           = "https://eknowledge.taharica.com/ai-fakopp/";
   var LINK_HMP              = "https://eknowledge.taharica.com/ai-hmp/";
   var LINK_TIMBANGAN        = "https://eknowledge.taharica.com/ai-timbangan/";
+  var LINK_LOADCELL         = "GANTI_DENGAN_URL_HALAMAN_LOADCELL"; // mis. https://eknowledge.taharica.com/ai-loadcell/
 
   // ===== Grup agent (per fungsi) =====
   var GROUPS = [
@@ -119,7 +120,10 @@ html, body { background: #0f1420 !important; }
           live:true, btn:{ text:"Buka HMP Assistant", url:LINK_HMP } },
         { icon:"⚖️", bg:"rgba(99,102,241,.16)", nama:"Timbangan",
           desc:"Sales & service timbangan & load cell (counting, lantai, platform, truk, lab, gantung). Analisa kapasitas/ketelitian, rekomendasi (cek timbanganindonesia.com), tera/kalibrasi, compare & harga.",
-          live:true, btn:{ text:"Buka Timbangan Assistant", url:LINK_TIMBANGAN } }
+          live:true, btn:{ text:"Buka Timbangan Assistant", url:LINK_TIMBANGAN } },
+        { icon:"🔩", bg:"rgba(220,38,38,.16)", nama:"Load Cell",
+          desc:"Sales & service load cell dari merek keagenan (CAS, Zemic, Dini Argeo, Kistler, Vibra, dll). Analisa aplikasi/kapasitas/tipe, rekomendasi (cek rajaloadcell.com), konfigurasi, kalibrasi, compare & harga.",
+          live:true, btn:{ text:"Buka Load Cell Assistant", url:LINK_LOADCELL } }
       ]
     }
   ];

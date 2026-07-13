@@ -10,6 +10,7 @@ from mesin_hobo import analisa_hobo    # asisten sales & service HOBO data logge
 from mesin_fakopp import analisa_fakopp  # asisten sales & service alat Fakopp (pohon & kayu)
 from mesin_hmp import analisa_hmp      # asisten sales & service alat HMP (uji tanah/geoteknik)
 from mesin_timbangan import analisa_timbangan  # asisten sales & service timbangan (timbanganindonesia.com)
+from mesin_loadcell import analisa_loadcell  # asisten sales & service load cell (rajaloadcell.com)
 
 # Bikin aplikasi backend-nya
 app = FastAPI()
@@ -171,3 +172,15 @@ class PesananTimbangan(BaseModel):
 @app.post("/timbangan-sales")
 def endpoint_timbangan_sales(pesanan: PesananTimbangan):
     return analisa_timbangan(pesanan.chat, pesanan.image_base64, pesanan.image_mime, pesanan.riwayat, pesanan.sebelumnya)
+
+# Pesanan asisten sales & service LOAD CELL (rajaloadcell.com)
+class PesananLoadcell(BaseModel):
+    chat: str = ""
+    image_base64: str = ""
+    image_mime: str = "image/png"
+    riwayat: str = ""
+    sebelumnya: dict | None = None
+
+@app.post("/loadcell-sales")
+def endpoint_loadcell_sales(pesanan: PesananLoadcell):
+    return analisa_loadcell(pesanan.chat, pesanan.image_base64, pesanan.image_mime, pesanan.riwayat, pesanan.sebelumnya)
