@@ -22,7 +22,7 @@ try:
 except Exception:
     types = None
 
-MODEL = "gemini-3.1-flash-lite"
+MODEL = "gemini-3.1-flash"
 
 # Website acuan Agent Product (bisa diubah via Secret)
 HOBO_SITES = os.getenv("HOBO_SITES", "onsetcomp.com, loggerindo.com").strip()
@@ -69,6 +69,8 @@ def _agent_reader_teks(chat):
         "air/tanah), jumlah titik/channel, durasi & interval logging, kebutuhan software/koneksi (USB, Bluetooth, "
         "HOBOware, HOBOlink, cloud/wireless), apakah ini penjualan/service/troubleshooting/kalibrasi, budget/timeline "
         "bila ada, serta hal yang ambigu/kurang jelas. JANGAN menyimpulkan solusi, hanya rangkum yang tertulis.\n\n"
+        "TELITI (utamakan BENAR walau lebih lama): baca ulang chat pelan-pelan, verifikasi tiap angka, satuan, dan "
+        "model/tipe/istilah sebelum ditulis; jangan sampai salah baca atau tertukar antar item.\n\n"
         "=== CHAT CUSTOMER ===\n" + chat
     )
     return _gen(prompt)
@@ -82,7 +84,7 @@ def _agent_reader_visual(file_bytes, mime):
         "Kamu Agent Reader (visual) untuk tim HOBO data logger. Baca gambar/PDF/datasheet terlampir. Ekstrak info "
         "terstruktur (poin '-'): jenis dokumen (foto lokasi, datasheet, skema pemasangan, dll), model/seri logger atau "
         "sensor yang terlihat, parameter & spesifikasi, jumlah unit/channel, label/anotasi penting, kondisi lingkungan "
-        "yang tampak. Kalau ada bagian tidak terbaca, katakan jujur. JANGAN mengarang."
+        "yang tampak. Kalau ada bagian tidak terbaca, katakan jujur. Baca ulang & verifikasi tiap angka, model/tipe, satuan, dan label yang terlihat sebelum ditulis; utamakan BENAR walau lebih lama. JANGAN mengarang."
     )
     return _gen(prompt, file_bytes, mime)
 
@@ -264,6 +266,12 @@ def _agent_result(info, inkon, tanya, produk, teknis, service, compare, budget, 
         "kedua untuk customer (sebut merek+model alternatif + kelebihan/kekurangan singkat + kisaran harga penawaran).\n"
         "3. output_technical: rangkuman teknis mendetail untuk tim teknik/service (produk HOBO + alternatif, setup/BOM, "
         "service/kalibrasi/software, perbandingan teknis, dan ringkasan estimasi biaya modal vs penawaran).\n"
+        "ATURAN ANTI-TERTUKAR (WAJIB): blok berlabel 'PRODUK ...' berisi produk UTAMA/keagenan kita — HANYA produk dari "
+        "blok itu yang boleh dipakai untuk output_awam_hobo. Blok 'ALTERNATIF (COMPARE)' berisi merek LAIN — HANYA itu "
+        "yang boleh dipakai untuk output_awam_lain. JANGAN PERNAH menukar/membalik keduanya; sebelum menulis, cek lagi "
+        "setiap nama produk sudah berada di output yang benar.\n"
+        "GAYA BALASAN: output_awam_hobo & output_awam_lain harus PADAT — langsung ke inti, maksimal 4-6 kalimat atau "
+        "beberapa poin singkat, tanpa basa-basi & tanpa pengulangan. Hanya output_technical yang boleh panjang/detail.\n"
         "Sertakan pertanyaan klarifikasi bila ada. Tandai angka harga sebagai estimasi. JANGAN mengarang di luar data.\n\n"
         "Kembalikan HANYA JSON valid (tanpa backtick): "
         "{\"output_awam_hobo\":\"...\", \"output_awam_lain\":\"...\", \"output_technical\":\"...\"}\n\n"
@@ -319,11 +327,31 @@ def _agent_router(chat, riwayat, prev):
     return d
 
 
-def _bungkus(teks_info, visual_info, info, inkon, tanya, produk, teknis, service, compare, budget, flow, hasil, rute=None, harga=""):
+# ── Agent Konfirmasi (konfirmasi permintaan + pertanyaan penjelas) ────
+def _agent_konfirmasi(info):
+    prompt = (
+        "Kamu Agent Konfirmasi untuk tim sales & service. Berdasarkan kebutuhan customer (hasil Reader/verifikasi) di "
+        "bawah, kerjakan HANYA dua hal:\n"
+        "1. KONFIRMASI: tulis ulang SINGKAT & JELAS pemahaman kita atas permintaan customer, sebagai kalimat siap kirim "
+        "untuk dikonfirmasi ke customer (mis. 'Jadi kebutuhan Bapak/Ibu adalah ... , benar ya?'). Maksimal 2-4 kalimat.\n"
+        "2. PERTANYAAN PENJELAS: daftar pertanyaan SPESIFIK yang perlu ditanyakan ke customer agar permintaan makin jelas "
+        "& tidak salah tafsir (mis. jumlah/kapasitas, lokasi/lingkungan, parameter, budget, timeline). HANYA tanyakan "
+        "yang benar-benar belum jelas dari info; kalau sudah jelas jangan ditanyakan lagi. Maksimal 6 poin.\n"
+        "Bahasa Indonesia, sopan, ringkas. Jangan mengarang kebutuhan yang tidak disebut customer.\n\n"
+        "Kembalikan HANYA Markdown dengan format persis:\n"
+        "**Konfirmasi permintaan:**\n(kalimat konfirmasi)\n\n**Perlu ditanyakan ke customer:**\n- (pertanyaan 1)\n"
+        "- (pertanyaan 2)\n\n"
+        "=== KEBUTUHAN CUSTOMER (TERVERIFIKASI) ===\n" + info
+    )
+    return _gen(prompt)
+
+
+def _bungkus(teks_info, visual_info, info, inkon, tanya, produk, teknis, service, compare, budget, flow, hasil, rute=None, harga="", konfirmasi=""):
     return {
         "reader_teks":            teks_info,
         "reader_visual":          visual_info,
         "info_terverifikasi":     info,
+        "konfirmasi":             (konfirmasi or "").strip(),
         "inkonsistensi":          inkon,
         "pertanyaan_klarifikasi": tanya,
         "produk":                 produk,
@@ -394,7 +422,8 @@ def analisa_hobo(chat, image_base64="", image_mime="image/png", riwayat="", sebe
         budget  = _agent_budget(info, produk, compare, harga)
         flow  = _agent_flow(teknis)
         hasil = _agent_result(info, inkon, tanya, produk, teknis, service, compare, budget)
-        return _bungkus(teks_info, visual_info, info, inkon, tanya, produk, teknis, service, compare, budget, flow, hasil, harga=harga)
+        konfirmasi = _agent_konfirmasi(info)
+        return _bungkus(teks_info, visual_info, info, inkon, tanya, produk, teknis, service, compare, budget, flow, hasil, harga=harga, konfirmasi=konfirmasi)
 
     # ===== TURN LANJUTAN -> Router pilih agent yang perlu kerja =====
     rute = _agent_router(chat, riwayat, prev)
@@ -454,4 +483,5 @@ def analisa_hobo(chat, image_base64="", image_mime="image/png", riwayat="", sebe
         flow = _agent_flow(teknis)
 
     hasil = _agent_result(info, inkon, tanya, produk, teknis, service, compare, budget, instr)
-    return _bungkus(teks_info, visual_info, info, inkon, tanya, produk, teknis, service, compare, budget, flow, hasil, rute, harga)
+    konfirmasi = _agent_konfirmasi(info)
+    return _bungkus(teks_info, visual_info, info, inkon, tanya, produk, teknis, service, compare, budget, flow, hasil, rute, harga, konfirmasi=konfirmasi)

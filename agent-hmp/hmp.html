@@ -4,6 +4,7 @@
      Tempel ke Elementor: widget HTML. Chat multi-turn, 2 kolom, detail agent + skematik (PNG).
      ============================================================ -->
 <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
 <div id="hmp">
@@ -228,8 +229,9 @@ html, body {
       +(tanya.length?'\n\n❓ Perlu klarifikasi:\n- '+tanya.join('\n- '):'');
     var boxId = "flow-box-"+(flowN+1);
     detailEl.innerHTML =
+      (data.konfirmasi ? card('🤝 Konfirmasi Permintaan + Pertanyaan ke Customer', data.konfirmasi, 'konfirm') : '') +
       card('🔩 Output Teknis (tim teknik/service)', data.output_technical, 'tech') +
-      '<div class="hmp-out flow"><button class="hmp-dlpng" data-box="'+boxId+'" type="button">⬇️ PNG</button><div class="hmp-out-title">🗺️ Skematik Alur Pengujian</div><div id="'+boxId+'" class="flow-box">⏳ Merender...</div></div>' +
+      '<div class="hmp-out flow"><button class="hmp-dlpng" data-box="'+boxId+'" type="button">⬇️ PDF</button><div class="hmp-out-title">🗺️ Skematik Alur Pengujian</div><div id="'+boxId+'" class="flow-box">⏳ Merender...</div></div>' +
       card('🅰️ Reader — Teks', data.reader_teks, 'step') +
       card('🅱️ Reader — Visual (foto/datasheet)', data.reader_visual, 'step') +
       card('📦 Product (HMP — hmp-online.de)', data.produk, 'step') +
@@ -273,13 +275,20 @@ html, body {
       ctx.fillStyle="#17110a"; ctx.fillRect(0,0,canvas.width,canvas.height);
       ctx.setTransform(scale,0,0,scale,0,0);
       ctx.drawImage(img,0,0,w,h);
-      canvas.toBlob(function(b){
-        var a=document.createElement("a"); a.href=URL.createObjectURL(b);
-        a.download="skematik-hmp-"+Date.now()+".png"; a.click();
-        setTimeout(function(){ URL.revokeObjectURL(a.href); },2000);
-      },"image/png");
+      try {
+        var imgData=canvas.toDataURL("image/png");
+        var jsPDFctor=(window.jspdf&&window.jspdf.jsPDF)||window.jsPDF;
+        if(!jsPDFctor){ alert("Modul PDF belum termuat, coba lagi sebentar."); return; }
+        var orient=canvas.width>=canvas.height?"l":"p";
+        var pdf=new jsPDFctor({orientation:orient, unit:"pt", format:"a4"});
+        var pw=pdf.internal.pageSize.getWidth(), ph=pdf.internal.pageSize.getHeight(), m=24;
+        var rr=Math.min((pw-m*2)/canvas.width,(ph-m*2)/canvas.height);
+        var iw=canvas.width*rr, ih=canvas.height*rr;
+        pdf.addImage(imgData,"PNG",(pw-iw)/2,(ph-ih)/2,iw,ih);
+        pdf.save("skematik-hmp-"+Date.now()+".pdf");
+      } catch(e){ alert("Gagal membuat PDF dari diagram."); }
     };
-    img.onerror=function(){ alert("Gagal membuat PNG dari diagram."); };
+    img.onerror=function(){ alert("Gagal membuat PDF dari diagram."); };
     img.src=src;
   }
 
