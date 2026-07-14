@@ -80,6 +80,7 @@ html, body { background: #0f1420 !important; }
   var LINK_HMP              = "https://eknowledge.taharica.com/ai-hmp/";
   var LINK_TIMBANGAN        = "https://eknowledge.taharica.com/ai-timbangan/";
   var LINK_LOADCELL         = "GANTI_DENGAN_URL_HALAMAN_LOADCELL"; // mis. https://eknowledge.taharica.com/ai-loadcell/
+  var LINK_MICROEPSILON     = "GANTI_DENGAN_URL_HALAMAN_MICROEPSILON"; // mis. https://eknowledge.taharica.com/ai-microepsilon/
 
   // ===== Grup agent (per fungsi) =====
   var GROUPS = [
@@ -123,7 +124,10 @@ html, body { background: #0f1420 !important; }
           live:true, btn:{ text:"Buka Timbangan Assistant", url:LINK_TIMBANGAN } },
         { icon:"🔩", bg:"rgba(220,38,38,.16)", nama:"Load Cell",
           desc:"Sales & service load cell dari merek keagenan (CAS, Zemic, Dini Argeo, Kistler, Vibra, dll). Analisa aplikasi/kapasitas/tipe, rekomendasi (cek rajaloadcell.com), konfigurasi, kalibrasi, compare & harga.",
-          live:true, btn:{ text:"Buka Load Cell Assistant", url:LINK_LOADCELL } }
+          live:true, btn:{ text:"Buka Load Cell Assistant", url:LINK_LOADCELL } },
+        { icon:"📏", bg:"rgba(120,190,32,.16)", nama:"Micro-Epsilon",
+          desc:"Sales & service sensor presisi Micro-Epsilon (optoNCDT laser, confocalDT, eddyNCDT, capaNCDT, thermoMETER, scanCONTROL, wireSENSOR). Analisa besaran/target/akurasi, pilih teknologi & produk (cek micro-epsilon.com), integrasi, kalibrasi, compare & harga.",
+          live:true, btn:{ text:"Buka Micro-Epsilon Assistant", url:LINK_MICROEPSILON } }
       ]
     }
   ];

@@ -11,6 +11,7 @@ from mesin_fakopp import analisa_fakopp  # asisten sales & service alat Fakopp (
 from mesin_hmp import analisa_hmp      # asisten sales & service alat HMP (uji tanah/geoteknik)
 from mesin_timbangan import analisa_timbangan  # asisten sales & service timbangan (timbanganindonesia.com)
 from mesin_loadcell import analisa_loadcell  # asisten sales & service load cell (rajaloadcell.com)
+from mesin_microepsilon import analisa_microepsilon  # asisten sales & service sensor Micro-Epsilon (micro-epsilon.com)
 
 # Bikin aplikasi backend-nya
 app = FastAPI()
@@ -184,3 +185,15 @@ class PesananLoadcell(BaseModel):
 @app.post("/loadcell-sales")
 def endpoint_loadcell_sales(pesanan: PesananLoadcell):
     return analisa_loadcell(pesanan.chat, pesanan.image_base64, pesanan.image_mime, pesanan.riwayat, pesanan.sebelumnya)
+
+# Pesanan asisten sales & service sensor MICRO-EPSILON (micro-epsilon.com)
+class PesananMicroepsilon(BaseModel):
+    chat: str = ""
+    image_base64: str = ""
+    image_mime: str = "image/png"
+    riwayat: str = ""
+    sebelumnya: dict | None = None
+
+@app.post("/microepsilon-sales")
+def endpoint_microepsilon_sales(pesanan: PesananMicroepsilon):
+    return analisa_microepsilon(pesanan.chat, pesanan.image_base64, pesanan.image_mime, pesanan.riwayat, pesanan.sebelumnya)
