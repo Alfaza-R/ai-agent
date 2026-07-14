@@ -17,7 +17,7 @@ try:
 except Exception:
     types = None
 
-MODEL = "gemini-3.1-flash"
+MODEL = "gemini-3.1-flash-lite"
 
 # Website katalog acuan + merek keagenan (bisa diubah via Secret)
 LOADCELL_SITES = os.getenv("LOADCELL_SITES", "rajaloadcell.com").strip()

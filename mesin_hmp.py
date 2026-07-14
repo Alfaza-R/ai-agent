@@ -18,7 +18,7 @@ try:
 except Exception:
     types = None
 
-MODEL = "gemini-3.1-flash"
+MODEL = "gemini-3.1-flash-lite"
 
 # Website acuan Agent Product (bisa diubah via Secret; tambah distributor bila ada)
 HMP_SITES = os.getenv("HMP_SITES", "hmp-online.de").strip()

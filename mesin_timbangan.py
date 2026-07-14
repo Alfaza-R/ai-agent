@@ -18,7 +18,7 @@ try:
 except Exception:
     types = None
 
-MODEL = "gemini-3.1-flash"
+MODEL = "gemini-3.1-flash-lite"
 
 # Website acuan Agent Product (katalog distributor; bisa diubah via Secret)
 TIMBANGAN_SITES = os.getenv("TIMBANGAN_SITES", "timbanganindonesia.com").strip()

@@ -22,7 +22,7 @@ try:
 except Exception:
     types = None
 
-MODEL = "gemini-3.1-flash"
+MODEL = "gemini-3.1-flash-lite"
 
 # Website acuan Agent Product (bisa diubah via Secret)
 HOBO_SITES = os.getenv("HOBO_SITES", "onsetcomp.com, loggerindo.com").strip()

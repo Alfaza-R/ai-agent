@@ -21,7 +21,7 @@ try:
 except Exception:
     types = None
 
-MODEL = "gemini-3.1-flash"
+MODEL = "gemini-3.1-flash-lite"
 
 # Website acuan Agent Product (bisa diubah via Secret; tambah distributor bila ada)
 FAKOPP_SITES = os.getenv("FAKOPP_SITES", "fakopp.com").strip()

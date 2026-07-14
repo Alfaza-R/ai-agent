@@ -26,7 +26,7 @@ try:
 except Exception:
     types = None
 
-MODEL = "gemini-3.1-flash"
+MODEL = "gemini-3.1-flash-lite"
 
 # Website acuan + lini produk principal (bisa diubah via Secret)
 MICROEPSILON_SITES = os.getenv("MICROEPSILON_SITES", "micro-epsilon.com").strip()
