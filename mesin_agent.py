@@ -5,7 +5,32 @@ from dotenv import load_dotenv
 from google import genai
 
 load_dotenv()
-client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+
+
+def _make_client():
+    """Buat Gemini client. Dipanggil LAZY (bukan saat import) supaya masalah key
+    tidak menjatuhkan seluruh app saat startup — app tetap hidup, error muncul jelas
+    per-request."""
+    key = (os.getenv("GEMINI_API_KEY") or "").strip()
+    if not key:
+        raise RuntimeError(
+            "GEMINI_API_KEY tidak ditemukan/kosong di environment server. "
+            "Cek Secret 'GEMINI_API_KEY' di Settings Space (pastikan terisi, tanpa spasi)."
+        )
+    return genai.Client(api_key=key)
+
+
+class _LazyClient:
+    """Proxy: bikin client asli saat pertama kali dipakai (client.models.dst), bukan saat import."""
+    _real = None
+
+    def __getattr__(self, name):
+        if _LazyClient._real is None:
+            _LazyClient._real = _make_client()
+        return getattr(_LazyClient._real, name)
+
+
+client = _LazyClient()
 
 CONTOH_FORMAT = """<h1>Konten Carousel Instagram — Realita Kehidupan Laboran</h1>
 <p><strong>Jenis Konten:</strong> Entertaining / Relatable</p>
