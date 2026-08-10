@@ -47,7 +47,8 @@ def _rewrite(brief_html, topik, platform, masalah):
         "- Semua isi relevan dengan topik.\n\n"
         "MASALAH yang HARUS diperbaiki:\n" + daftar + "\n\n"
         "PERTAHANKAN format & struktur HTML: <h1> untuk judul narasi, <h2> untuk tiap slide, "
-        "<ul><li> untuk poin/Visual, slide terakhir tetap Call To Action. "
+        "<ul><li> untuk poin/Visual, slide terakhir tetap Call To Action. JANGAN ubah/hapus nama brand di judul "
+        "(<h1>) maupun field \"Warna Dominan\" kalau sudah ada — pertahankan persis. "
         "Jangan menambah penjelasan/komentar apa pun.\n"
         "Kembalikan HANYA HTML brief yang sudah diperbaiki (tanpa backtick).\n\n"
         "=== BRIEF LAMA ===\n" + (brief_html or "")

@@ -63,6 +63,18 @@ CONTOH_FORMAT = """<h1>Konten Carousel Instagram — Realita Kehidupan Laboran</
 </ul>"""
 
 
+# Akun/brand (sosmed) yang bisa dipilih sebelum generate brief — tiap brand punya
+# palet warna dominan sendiri untuk template desain, dan namanya dimunculkan di judul brief.
+BRAND_INFO = {
+    "alatuji":        {"label": "Alat Uji",             "warna": "Orange, Hitam, atau Biru (pilih salah satu/kombinasi yang paling pas dengan nuansa kontennya)"},
+    "taharica":       {"label": "Taharica",              "warna": "Biru"},
+    "automationindo": {"label": "Automation Indo",       "warna": "Merah, Hitam, dan Putih"},
+    "loggerindo":     {"label": "Logger Indo",           "warna": "Biru"},
+    "timbangan":      {"label": "Timbangan Indonesia",   "warna": "Merah dan Cream"},
+    "rajaloadcell":   {"label": "Raja Loadcell",         "warna": "Biru dan Merah"},
+}
+
+
 # Daftar "sudut konten" untuk variasi brief saat 1 platform diminta banyak brief.
 # Dipakai bergiliran (brief ke-1 pakai sudut ke-1, dst).
 SUDUT_KONTEN = [
@@ -89,10 +101,18 @@ def baca_link(url):
         return f"(Gagal baca link: {e})"
 
 
-def buat_brief_satu_platform(topik, link, isi_link, platform, sudut=None):
+def buat_brief_satu_platform(topik, link, isi_link, platform, sudut=None, brand=None):
     instruksi_sudut = (
         f"- SUDUT KONTEN brief ini: {sudut}. Fokuskan seluruh isi brief ke sudut ini.\n"
         if sudut else ""
+    )
+    b = BRAND_INFO.get((brand or "").strip().lower())
+    instruksi_brand = (
+        f"- Brief ini untuk akun/brand \"{b['label']}\". WAJIB isi \"Warna Dominan\" dengan warna dari palet brand ini: "
+        f"{b['warna']}. Kalau ada beberapa pilihan warna, pilih 1 (atau kombinasi wajar) yang paling cocok dengan nuansa "
+        f"kontennya — JANGAN pakai warna di luar palet ini.\n"
+        f"- Sisipkan nama brand \"{b['label']}\" di judul narasi (<h1>) secara natural, mis. \"<Judul konten> — {b['label']}\".\n"
+        if b else ""
     )
     perintah = f"""Kamu adalah content planner profesional untuk brand alat industri/laboratorium.
 Buatkan brief konten untuk platform {platform}, untuk dikerjakan tim desain.
@@ -106,7 +126,7 @@ PENTING:
   * Label singkat (Jenis Konten, Headline, Sub Headline, dsb) pakai <p><strong>Label:</strong> nilai</p>.
 - HANYA keluarkan HTML mentah. JANGAN bungkus dengan ```html atau ``` , JANGAN pakai markdown.
 - Sesuaikan NUANSA dengan platform {platform}: kalau Instagram lebih santai/relatable, kalau LinkedIn lebih profesional dan informatif.
-{instruksi_sudut}- Jangan menambah bagian "Tips Tambahan", "Caption", atau "Hashtag".
+{instruksi_sudut}{instruksi_brand}- Jangan menambah bagian "Tips Tambahan", "Caption", atau "Hashtag".
 - Maksimal 5 slide (termasuk CTA). Umumnya 3-4 slide. Slide terakhir selalu CTA (isi CTA seperti biasa).
 - Pada bagian "Sumber/Referensi", tulis link ini: {link}
 
@@ -139,7 +159,7 @@ Pastikan isi nyambung dengan produk dari informasi di atas."""
     return hasil
 
 
-def buat_brief(topik, link, daftar_platform, jumlah=1):
+def buat_brief(topik, link, daftar_platform, jumlah=1, brand=None):
     # Batasi jumlah brief per platform supaya wajar (hindari request kelamaan).
     try:
         jumlah = int(jumlah)
@@ -154,7 +174,7 @@ def buat_brief(topik, link, daftar_platform, jumlah=1):
         for i in range(jumlah):
             # Kalau cuma 1 brief, biarkan tanpa sudut khusus (perilaku lama).
             sudut = SUDUT_KONTEN[i % len(SUDUT_KONTEN)] if jumlah > 1 else None
-            isi = buat_brief_satu_platform(topik, link, isi_link, platform, sudut)
+            isi = buat_brief_satu_platform(topik, link, isi_link, platform, sudut, brand)
             daftar_brief.append({"sudut": sudut or "Umum", "isi": isi})
         hasil[platform] = daftar_brief
     return hasil
