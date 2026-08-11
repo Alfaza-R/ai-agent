@@ -140,6 +140,26 @@ def _agent_jumlah(topik, sudut_pilihan, platform):
         return 2  # fallback wajar kalau AI gagal / balasan tidak bisa diparse
 
 
+def _generate_aman(prompt):
+    """Panggil Gemini dengan 1x retry kalau error transient (rate limit/timeout/gangguan
+    jaringan). Request generate makin banyak panggilan Gemini berurutan (jumlah brief >1,
+    Agent Jumlah, checker antar-konten, dst) -> makin besar peluang 1 panggilan kena error
+    sesaat. Kalau tetap gagal, kembalikan HTML placeholder yang jelas (BUKAN raise), supaya
+    1 kegagalan tidak bikin SELURUH request /buat-brief 500 (brief lain tetap jalan)."""
+    for percobaan in range(2):
+        try:
+            resp = client.models.generate_content(model="gemini-3.1-flash-lite", contents=prompt)
+            return resp.text or ""
+        except Exception as e:
+            if percobaan == 0:
+                continue
+            return (
+                "<h1>⚠️ Gagal membuat konten</h1>"
+                f"<p><strong>Error:</strong> Terjadi gangguan saat memanggil AI ({type(e).__name__}). "
+                "Coba generate ulang untuk konten ini.</p>"
+            )
+
+
 def baca_link(url):
     if not url:
         return "(tidak ada link referensi)"
@@ -212,11 +232,7 @@ Topik: {topik}
 Platform: {platform}
 Pastikan isi nyambung dengan produk dari informasi di atas."""
 
-    response = client.models.generate_content(
-        model="gemini-3.1-flash-lite",
-        contents=perintah,
-    )
-    hasil = response.text
+    hasil = _generate_aman(perintah)
 
     # Brief Checker: cek koherensi/relevansi, rewrite otomatis kalau perlu (maks 2x)
     try:
