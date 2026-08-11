@@ -216,7 +216,7 @@ PENTING:
 - HANYA keluarkan HTML mentah. JANGAN bungkus dengan ```html atau ``` , JANGAN pakai markdown.
 - Sesuaikan NUANSA dengan platform {platform}: kalau Instagram lebih santai/relatable, kalau LinkedIn lebih profesional dan informatif.
 {instruksi_sudut}{instruksi_brand}{instruksi_beda}- Jangan menambah bagian "Tips Tambahan", "Caption", atau "Hashtag".
-- Maksimal 5 slide (termasuk CTA). Umumnya 3-4 slide. Slide terakhir selalu CTA (isi CTA seperti biasa).
+- JUMLAH SLIDE (WAJIB): minimal 3 slide (termasuk CTA) — JANGAN PERNAH cuma 1 atau 2 slide, itu terlalu tipis untuk carousel. Target rata-rata 4-5 slide. Maksimal 6 slide (termasuk CTA). Slide terakhir selalu CTA (isi CTA seperti biasa).
 - Pada bagian "Sumber/Referensi", tulis link ini: {link}
 
 === CONTOH FORMAT YANG HARUS DIIKUTI ===

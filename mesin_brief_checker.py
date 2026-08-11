@@ -58,10 +58,29 @@ def _rewrite(brief_html, topik, platform, masalah):
     return out or brief_html
 
 
+def _hitung_slide(brief_html):
+    """Hitung jumlah slide dari heading <h2> (tiap slide = 1 <h2>). Deterministik di kode
+    (bukan tanya AI) -> tidak bergantung AI sadar sendiri kalau slide-nya kurang."""
+    return len(re.findall(r"<h2\b", brief_html or "", re.IGNORECASE))
+
+
 def periksa_dan_perbaiki(brief_html, topik, platform, maks=2):
-    """Cek koherensi; rewrite kalau perlu (maksimal `maks` putaran)."""
+    """Cek jumlah slide minimal 3 (deterministik) + koherensi (via AI); rewrite kalau perlu
+    (maksimal `maks` putaran)."""
     hasil = brief_html
     for _ in range(maks):
+        jumlah_slide = _hitung_slide(hasil)
+        if jumlah_slide < 3:
+            masalah = [
+                f"Cuma ada {jumlah_slide} slide, WAJIB minimal 3 slide (termasuk CTA). Tambah slide BARU yang "
+                "relevan dengan topik (jangan cuma menambah CTA duplikat)."
+            ]
+            baru = _rewrite(hasil, topik, platform, masalah)
+            if not baru or baru.strip() == (hasil or "").strip():
+                break
+            hasil = baru
+            continue  # cek lagi dari awal (termasuk jumlah slide) di putaran berikutnya
+
         cek = _periksa(hasil, topik, platform)
         if cek["konsisten"]:
             break
