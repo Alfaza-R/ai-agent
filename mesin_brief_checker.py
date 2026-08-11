@@ -70,3 +70,53 @@ def periksa_dan_perbaiki(brief_html, topik, platform, maks=2):
             break
         hasil = baru
     return hasil
+
+
+# ── Checker ANTAR-konten ───────────────────────────────────────────────
+# Beda dari periksa_dan_perbaiki() di atas (yang cek 1 brief secara internal):
+# ini membandingkan SEMUA brief hasil 1 permintaan (platform yang sama, jumlah > 1)
+# supaya tidak ada 2+ brief yang SUBSTANSINYA sama walau kalimatnya beda.
+def cek_kemiripan_antar_konten(topik, platform, daftar_brief):
+    """
+    daftar_brief: list of {"sudut":..., "isi": html}.
+    Return {"ada_duplikat_makna": bool, "instruksi_revisi": {"<index>": "instruksi spesifik"}}.
+    """
+    if not isinstance(daftar_brief, list) or len(daftar_brief) < 2:
+        return {"ada_duplikat_makna": False, "instruksi_revisi": {}}
+
+    daftar_teks = "\n\n".join(
+        f"=== KONTEN #{i} (sudut: {b.get('sudut', 'Umum')}) ===\n{b.get('isi', '')}"
+        for i, b in enumerate(daftar_brief)
+    )
+    prompt = (
+        f"Kamu QC editor untuk {len(daftar_brief)} brief konten platform {platform}, topik \"{topik}\", yang "
+        "dihasilkan dari SATU permintaan yang sama — tujuannya jadi ide konten yang BENAR-BENAR BERBEDA, bukan "
+        "variasi kalimat dari ide yang sama.\n\n"
+        "Baca semua konten di bawah, bandingkan satu sama lain. Fokus ke SUBSTANSI (tips/fakta/sudut pandang/pesan "
+        "inti yang disampaikan), BUKAN sekadar mirip kalimat. Dua konten dianggap TERLALU MIRIP kalau inti pesannya "
+        "sama (mis. sama-sama membahas 'kebersihan alat' walau headline & kalimatnya beda), sehingga kalau dipasang "
+        "bersebelahan di feed terasa mengulang.\n\n"
+        "Kembalikan HANYA JSON valid (tanpa backtick):\n"
+        "{\"ada_duplikat_makna\": true/false, "
+        "\"instruksi_revisi\": {\"<index_konten_yang_perlu_ditulis_ulang>\": \"instruksi spesifik: sebutkan konten "
+        "mana yang inti-nya sama, apa inti konten yang sudah dipakai, dan arahkan ke sudut/informasi BARU yang "
+        "belum dibahas konten lain\"}}\n"
+        "Kalau ada kelompok >2 yang mirip, sisakan SATU yang paling kuat & minta revisi untuk sisanya saja. Kalau "
+        "semua konten sudah cukup berbeda substansinya, kembalikan instruksi_revisi kosong ({}) dan "
+        "ada_duplikat_makna: false. Index memakai angka SESUAI '#' di setiap KONTEN di bawah (mulai dari 0).\n\n"
+        + daftar_teks
+    )
+    try:
+        resp = client.models.generate_content(model="gemini-3.1-flash-lite", contents=prompt)
+        txt = re.sub(r"```json|```", "", resp.text or "").strip()
+        data = json.loads(txt)
+        instruksi = data.get("instruksi_revisi", {})
+        if not isinstance(instruksi, dict):
+            instruksi = {}
+        return {
+            "ada_duplikat_makna": bool(data.get("ada_duplikat_makna", False)),
+            "instruksi_revisi": instruksi,
+        }
+    except Exception:
+        # Kalau gagal menilai, anggap tidak ada duplikat supaya tidak mengganggu alur generate
+        return {"ada_duplikat_makna": False, "instruksi_revisi": {}}

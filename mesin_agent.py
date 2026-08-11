@@ -101,7 +101,7 @@ def baca_link(url):
         return f"(Gagal baca link: {e})"
 
 
-def buat_brief_satu_platform(topik, link, isi_link, platform, sudut=None, brand=None):
+def buat_brief_satu_platform(topik, link, isi_link, platform, sudut=None, brand=None, instruksi_diferensiasi=None):
     instruksi_sudut = (
         f"- SUDUT KONTEN brief ini: {sudut}. Fokuskan seluruh isi brief ke sudut ini.\n"
         if sudut else ""
@@ -113,6 +113,10 @@ def buat_brief_satu_platform(topik, link, isi_link, platform, sudut=None, brand=
         f"kontennya — JANGAN pakai warna di luar palet ini.\n"
         f"- Sisipkan nama brand \"{b['label']}\" di judul narasi (<h1>) secara natural, mis. \"<Judul konten> — {b['label']}\".\n"
         if b else ""
+    )
+    instruksi_beda = (
+        f"- WAJIB DIBEDAKAN dari konten lain dalam batch permintaan ini: {instruksi_diferensiasi}\n"
+        if instruksi_diferensiasi else ""
     )
     perintah = f"""Kamu adalah content planner profesional untuk brand alat industri/laboratorium.
 Buatkan brief konten untuk platform {platform}, untuk dikerjakan tim desain.
@@ -126,7 +130,7 @@ PENTING:
   * Label singkat (Jenis Konten, Headline, Sub Headline, dsb) pakai <p><strong>Label:</strong> nilai</p>.
 - HANYA keluarkan HTML mentah. JANGAN bungkus dengan ```html atau ``` , JANGAN pakai markdown.
 - Sesuaikan NUANSA dengan platform {platform}: kalau Instagram lebih santai/relatable, kalau LinkedIn lebih profesional dan informatif.
-{instruksi_sudut}{instruksi_brand}- Jangan menambah bagian "Tips Tambahan", "Caption", atau "Hashtag".
+{instruksi_sudut}{instruksi_brand}{instruksi_beda}- Jangan menambah bagian "Tips Tambahan", "Caption", atau "Hashtag".
 - Maksimal 5 slide (termasuk CTA). Umumnya 3-4 slide. Slide terakhir selalu CTA (isi CTA seperti biasa).
 - Pada bagian "Sumber/Referensi", tulis link ini: {link}
 
@@ -176,5 +180,52 @@ def buat_brief(topik, link, daftar_platform, jumlah=1, brand=None):
             sudut = SUDUT_KONTEN[i % len(SUDUT_KONTEN)] if jumlah > 1 else None
             isi = buat_brief_satu_platform(topik, link, isi_link, platform, sudut, brand)
             daftar_brief.append({"sudut": sudut or "Umum", "isi": isi})
+
+        # Checker ANTAR-konten: cuma relevan kalau lebih dari 1 brief di platform ini.
+        if len(daftar_brief) > 1:
+            daftar_brief = _diferensiasi_antar_konten(topik, link, isi_link, platform, brand, daftar_brief)
+
         hasil[platform] = daftar_brief
     return hasil
+
+
+def _diferensiasi_antar_konten(topik, link, isi_link, platform, brand, daftar_brief, maks=2):
+    """AI Checker ANTAR-konten: bandingkan semua brief dalam 1 platform (hasil 1
+    permintaan) agar tidak ada 2+ yang SUBSTANSINYA sama walau kalimatnya beda.
+    Kalau ada yang mirip, brief itu ditulis ulang Writer dengan arahan diferensiasi
+    spesifik (maks `maks` putaran, sama seperti pola checker lain di proyek ini)."""
+    try:
+        from mesin_brief_checker import cek_kemiripan_antar_konten
+    except Exception:
+        return daftar_brief  # checker error -> pakai hasil apa adanya, jangan gagalkan generate
+
+    for _ in range(maks):
+        try:
+            cek = cek_kemiripan_antar_konten(topik, platform, daftar_brief)
+        except Exception:
+            break
+        instruksi = cek.get("instruksi_revisi") or {}
+        if not instruksi:
+            break
+
+        berubah = False
+        for idx_str, catatan in instruksi.items():
+            try:
+                idx = int(idx_str)
+            except (TypeError, ValueError):
+                continue
+            if not (0 <= idx < len(daftar_brief)) or not catatan:
+                continue
+            sudut = daftar_brief[idx].get("sudut")
+            sudut = None if sudut in (None, "", "Umum") else sudut
+            baru = buat_brief_satu_platform(
+                topik, link, isi_link, platform, sudut, brand, instruksi_diferensiasi=catatan
+            )
+            if baru and baru.strip() != (daftar_brief[idx].get("isi") or "").strip():
+                daftar_brief[idx]["isi"] = baru
+                berubah = True
+
+        if not berubah:
+            break
+
+    return daftar_brief
