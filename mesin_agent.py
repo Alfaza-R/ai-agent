@@ -68,6 +68,7 @@ CONTOH_FORMAT = """<h1>Konten Carousel Instagram — Realita Kehidupan Laboran</
 BRAND_INFO = {
     "alatuji":        {"label": "Alat Uji",             "warna": "Orange, Hitam, atau Biru (pilih salah satu/kombinasi yang paling pas dengan nuansa kontennya)"},
     "taharica":       {"label": "Taharica",              "warna": "Biru"},
+    "taharicadm":     {"label": "Taharica Data Monitoring", "warna": "Cyan dan Biru"},
     "automationindo": {"label": "Automation Indo",       "warna": "Merah, Hitam, dan Putih"},
     "loggerindo":     {"label": "Logger Indo",           "warna": "Biru"},
     "timbangan":      {"label": "Timbangan Indonesia",   "warna": "Merah dan Cream"},
