@@ -80,17 +80,64 @@ BRAND_INFO = {
 
 
 # Daftar "sudut konten" untuk variasi brief saat 1 platform diminta banyak brief.
-# Dipakai bergiliran (brief ke-1 pakai sudut ke-1, dst).
-SUDUT_KONTEN = [
-    "Edukasi / Tips Praktis",
-    "Product Knowledge (kenalkan fitur & keunggulan produk)",
-    "Storytelling / Relatable (cerita keseharian yang nyambung dengan produk)",
-    "Promosi / Penawaran (dorong audiens untuk action / beli)",
-    "Testimoni / Social Proof (bukti & kepercayaan dari pengguna)",
-    "Behind The Scenes / Proses (di balik layar produk atau layanan)",
-    "Mitos vs Fakta / FAQ (luruskan salah kaprah, jawab pertanyaan umum)",
-    "Inspirasi / Motivasi (angkat semangat yang relevan dengan audiens)",
-]
+# Key SINGKAT dipakai sebagai value checkbox di frontend (user bisa pilih manual);
+# kalau user tidak pilih apa-apa, SUDUT_KONTEN (semua value, urut) dipakai bergiliran
+# seperti perilaku lama (sistem yang pilih/variasikan sendiri).
+SUDUT_KONTEN_MAP = {
+    "Edukasi":            "Edukasi / Tips Praktis",
+    "Product Knowledge":  "Product Knowledge (kenalkan fitur & keunggulan produk)",
+    "Storytelling":       "Storytelling / Relatable (cerita keseharian yang nyambung dengan produk)",
+    "Promosi":            "Promosi / Penawaran (dorong audiens untuk action / beli)",
+    "Testimoni":          "Testimoni / Social Proof (bukti & kepercayaan dari pengguna)",
+    "Behind The Scenes":  "Behind The Scenes / Proses (di balik layar produk atau layanan)",
+    "Mitos vs Fakta":     "Mitos vs Fakta / FAQ (luruskan salah kaprah, jawab pertanyaan umum)",
+    "Inspirasi":          "Inspirasi / Motivasi (angkat semangat yang relevan dengan audiens)",
+}
+SUDUT_KONTEN = list(SUDUT_KONTEN_MAP.values())
+
+
+def _resolve_sudut_pilihan(daftar_sudut):
+    """Ubah daftar KEY singkat (dari checkbox frontend) jadi daftar label lengkap
+    SUDUT_KONTEN, dedupe & buang key yang tidak dikenal. Kosong kalau user tidak pilih
+    apa-apa (berarti sistem yang pilih/variasikan sendiri, perilaku lama)."""
+    keys = [str(k).strip() for k in (daftar_sudut or []) if isinstance(k, str) and str(k).strip()]
+    seen, hasil = set(), []
+    for k in keys:
+        full = SUDUT_KONTEN_MAP.get(k)
+        if full and full not in seen:
+            seen.add(full)
+            hasil.append(full)
+    return hasil
+
+
+def _agent_jumlah(topik, sudut_pilihan, platform):
+    """Agent Jumlah: tentukan berapa banyak konten (brief) yang wajar untuk 1 permintaan,
+    dipanggil HANYA kalau user tidak menentukan jumlah sendiri (jumlah=0/auto). Bias: 2-3
+    konten umum, sesekali 4-5 kalau topiknya kaya, condong ke 1 kalau sudut yang diminta
+    cuma Product Knowledge & topiknya sempit -- tapi BUKAN aturan kaku, AI menyesuaikan
+    konteks (Product Knowledge juga bisa >1 kalau produknya punya beberapa fitur/poin)."""
+    sudut_txt = ", ".join(sudut_pilihan) if sudut_pilihan else "(belum ditentukan user, kamu juga tahu sistem lain akan memvariasikan sudutnya sendiri)"
+    prompt = (
+        "Kamu Content Strategist. Tentukan JUMLAH konten (brief) paling wajar untuk 1 permintaan berikut.\n"
+        f"Platform: {platform}\nTopik: \"{topik}\"\nSudut konten yang diminta user: {sudut_txt}\n\n"
+        "PANDUAN (bukan aturan kaku, sesuaikan konteks — pertimbangkan seberapa kaya/luas topiknya):\n"
+        "- Umumnya 2-3 konten cukup untuk topik dengan variasi sudut yang wajar.\n"
+        "- Sesekali 4-5 kalau topiknya kaya (banyak sub-topik/fitur/sudut pandang berbeda yang layak dipisah, "
+        "atau user minta beberapa sudut konten sekaligus).\n"
+        "- Condong ke 1 konten KALAU sudut yang diminta HANYA 'Product Knowledge' DAN topiknya sempit/spesifik "
+        "(tidak ada variasi berarti) — TAPI kalau produk/topiknya sendiri punya beberapa fitur/poin berbeda yang "
+        "layak dipisah, boleh lebih dari 1 walau sudutnya Product Knowledge.\n"
+        "- Jangan paksa banyak konten kalau topiknya sempit (lebih baik sedikit & berbobot daripada banyak tapi "
+        "mengada-ada/mengulang).\n\n"
+        "Kembalikan HANYA satu angka bulat 1-8. TANPA penjelasan, TANPA tanda baca lain, TANPA kata apa pun selain "
+        "angkanya."
+    )
+    try:
+        resp = client.models.generate_content(model="gemini-3.1-flash-lite", contents=prompt)
+        n = int(re.search(r"\d+", resp.text or "").group())
+        return max(1, min(n, 8))
+    except Exception:
+        return 2  # fallback wajar kalau AI gagal / balasan tidak bisa diparse
 
 
 def baca_link(url):
@@ -200,13 +247,20 @@ def _paksa_warna_dominan(html, warna):
     return html
 
 
-def buat_brief(topik, link, daftar_platform, jumlah=1, brand=None):
-    # Batasi jumlah brief per platform supaya wajar (hindari request kelamaan).
+def buat_brief(topik, link, daftar_platform, jumlah=0, brand=None, sudut=None):
+    # jumlah: 0/kosong = Agent Jumlah yang tentukan sendiri per platform (lihat _agent_jumlah).
+    # Kalau user isi angka > 0, itu dipakai apa adanya (dibatasi 1-8) — pilihan user menang.
     try:
-        jumlah = int(jumlah)
+        jumlah_req = int(jumlah)
     except (TypeError, ValueError):
-        jumlah = 1
-    jumlah = max(1, min(jumlah, 8))
+        jumlah_req = 0
+    jumlah_req = max(0, min(jumlah_req, 8))
+
+    # sudut: key singkat dari checkbox frontend (mis. ["Product Knowledge", "Edukasi"]).
+    # Kosong = user tidak pilih -> sistem yang variasikan sendiri (perilaku lama, SUDUT_KONTEN
+    # dipakai bergiliran). Kalau user pilih, HANYA sudut itu yang dipakai (bergiliran juga
+    # kalau jumlah > banyaknya sudut yang dipilih).
+    sudut_pilihan = _resolve_sudut_pilihan(sudut)
 
     isi_link = baca_link(link)
     b = BRAND_INFO.get((brand or "").strip().lower())
@@ -214,15 +268,24 @@ def buat_brief(topik, link, daftar_platform, jumlah=1, brand=None):
 
     hasil = {}
     for platform in daftar_platform:
+        jumlah_platform = jumlah_req if jumlah_req > 0 else _agent_jumlah(topik, sudut_pilihan, platform)
+        jumlah_platform = max(1, min(jumlah_platform, 8))
+
+        sudut_pool = sudut_pilihan if sudut_pilihan else SUDUT_KONTEN
+
         daftar_brief = []
-        for i in range(jumlah):
-            # Kalau cuma 1 brief, biarkan tanpa sudut khusus (perilaku lama).
-            sudut = SUDUT_KONTEN[i % len(SUDUT_KONTEN)] if jumlah > 1 else None
+        for i in range(jumlah_platform):
+            if sudut_pilihan:
+                # User pilih sudut sendiri -> HORMATI pilihannya, bergiliran, walau cuma 1 brief.
+                sudut_i = sudut_pool[i % len(sudut_pool)]
+            else:
+                # Kalau cuma 1 brief & sistem yang tentukan sudut, biarkan tanpa sudut khusus (perilaku lama).
+                sudut_i = sudut_pool[i % len(sudut_pool)] if jumlah_platform > 1 else None
             # Kalau brief > 1 & brand punya beberapa warna -> warna dibagi RATA bergiliran
             # per index (bukan diserahkan ke AI), supaya tidak ada 2 konten kebetulan warna sama.
-            warna_i = palet_warna[i % len(palet_warna)] if (jumlah > 1 and palet_warna) else None
-            isi = buat_brief_satu_platform(topik, link, isi_link, platform, sudut, brand, warna_paksa=warna_i)
-            daftar_brief.append({"sudut": sudut or "Umum", "isi": isi, "warna": warna_i})
+            warna_i = palet_warna[i % len(palet_warna)] if (jumlah_platform > 1 and palet_warna) else None
+            isi = buat_brief_satu_platform(topik, link, isi_link, platform, sudut_i, brand, warna_paksa=warna_i)
+            daftar_brief.append({"sudut": sudut_i or "Umum", "isi": isi, "warna": warna_i})
 
         # Checker ANTAR-konten: cuma relevan kalau lebih dari 1 brief di platform ini.
         if len(daftar_brief) > 1:
