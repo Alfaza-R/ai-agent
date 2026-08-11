@@ -1,4 +1,5 @@
 import os
+import re
 import requests
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
@@ -114,8 +115,11 @@ def buat_brief_satu_platform(topik, link, isi_link, platform, sudut=None, brand=
         # Warna SUDAH ditentukan oleh kode (dibagi rata antar-konten) -> jangan diserahkan ke AI lagi,
         # supaya tidak ada 2+ konten dalam 1 batch kebetulan pilih warna yang sama.
         instruksi_brand = (
-            f"- Brief ini untuk akun/brand \"{b['label']}\". WAJIB isi \"Warna Dominan\" PERSIS dengan warna berikut "
-            f"(sudah ditentukan sistem, JANGAN pilih/ganti warna lain, JANGAN campur dengan warna lain): {warna_paksa}.\n"
+            f"- Brief ini untuk akun/brand \"{b['label']}\". Warna Dominan brief ini SUDAH DITENTUKAN SISTEM: "
+            f"\"{warna_paksa}\" (SATU warna ini saja). WAJIB: (1) isi field \"Warna Dominan\" PERSIS dengan kata "
+            f"\"{warna_paksa}\" SAJA — JANGAN tambah warna lain, JANGAN pakai kata \"dan\", walau menurutmu warna lain "
+            f"juga cocok/related dengan topiknya; (2) deskripsi Visual & mood tiap slide juga konsisten pakai nuansa "
+            f"warna \"{warna_paksa}\" saja, bukan kombinasi warna lain.\n"
             f"- Sisipkan nama brand \"{b['label']}\" di judul narasi (<h1>) secara natural, mis. \"<Judul konten> — {b['label']}\".\n"
         )
     elif b:
@@ -174,7 +178,26 @@ Pastikan isi nyambung dengan produk dari informasi di atas."""
     except Exception:
         pass  # kalau checker error, pakai brief asli supaya generate tetap jalan
 
+    if warna_paksa:
+        # JAMINAN deterministik: apapun yang ditulis AI di field "Warna Dominan" (model tidak
+        # selalu 100% patuh ke instruksi teks, kadang tetap gabung >1 warna), TIMPA di sini
+        # supaya hasil akhir PASTI sesuai jatah warna round-robin dari buat_brief().
+        hasil = _paksa_warna_dominan(hasil, warna_paksa)
+
     return hasil
+
+
+def _paksa_warna_dominan(html, warna):
+    """Timpa isi field 'Warna Dominan' di HTML brief dengan `warna` PERSIS, apapun yang
+    ditulis AI. Deterministik di kode -> tidak bergantung kepatuhan model ke instruksi.
+    Rekonstruksi penuh label+nilai (bukan partial-replace) supaya tahan variasi format kecil
+    (kolon di dalam/luar <strong>, spasi ganda, dll)."""
+    if not warna or not html:
+        return html
+    pola = re.compile(r'<strong>\s*Warna\s*Dominan\s*:?\s*</strong>\s*:?\s*[^<]*', re.IGNORECASE)
+    if pola.search(html):
+        return pola.sub(f'<strong>Warna Dominan:</strong> {warna}', html, count=1)
+    return html
 
 
 def buat_brief(topik, link, daftar_platform, jumlah=1, brand=None):
