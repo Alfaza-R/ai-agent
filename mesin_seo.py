@@ -36,6 +36,65 @@ def _subheadings(html):
     return [_strip_tags(h) for h in re.findall(r"<h[23]\b[^>]*>(.*?)</h[23]>", html or "", flags=re.I | re.S)]
 
 
+# Kata berawalan "di-" yang BUKAN kata kerja pasif (istilah teknis/serapan/kata umum).
+# Heuristik pasif dasar (kata apapun berawalan "di") terlalu agresif -- sering salah
+# tangkap istilah teknis yang lazim di artikel alat ukur/industri (digital, dimensi, dll).
+_DI_BUKAN_PASIF = {
+    "digital", "digitalisasi", "dimensi", "dimensional", "diagram", "distribusi",
+    "disiplin", "diskon", "dini", "dingin", "dimana", "dividen", "diplomat", "dialog",
+    "diet", "differensial", "dioda", "dielektrik", "direktur", "divisi", "diversifikasi",
+    "dinamis", "dinamika", "diskusi", "dilema", "diameter", "diagnosa", "diagnostik",
+    "diesel", "disket", "dinasti", "dinar", "distributor", "display", "dial", "diafragma",
+    "diplomatik", "diagonal", "diafon", "digester", "dividen", "diode", "diagnostic",
+}
+
+
+def _kata_pasif(kata):
+    """True kalau `kata` (lowercase, sudah token) memenuhi pola prefiks pasif 'di-'
+    DAN bukan pengecualian di _DI_BUKAN_PASIF (istilah teknis/kata umum, bukan kata kerja)."""
+    return bool(re.match(r"^di[a-z]{3,}$", kata)) and kata not in _DI_BUKAN_PASIF
+
+
+# Kata/frasa transisi Bahasa Indonesia (penambahan, kontras, sebab-akibat, urutan, contoh,
+# penekanan, ringkasan) -- sengaja TIDAK memasukkan konjungsi dasar 1 kata yang trivial
+# (dan/atau/karena/tapi) supaya metrik ini benar-benar mengukur alur tulisan yang terstruktur,
+# bukan sekadar kalimat yang kebetulan punya kata sambung biasa.
+_KATA_TRANSISI = [
+    # Penambahan
+    "selain itu", "di samping itu", "tidak hanya itu", "lebih lanjut", "terlebih lagi",
+    "lagi pula", "lagipula", "apalagi", "bahkan",
+    # Kontras
+    "namun demikian", "akan tetapi", "meskipun demikian", "walau demikian",
+    "kendati demikian", "sebaliknya", "di sisi lain", "di lain pihak",
+    # Sebab-akibat
+    "oleh karena itu", "dengan demikian", "karena itu", "akibatnya",
+    "sebagai hasilnya", "sehingga",
+    # Urutan/waktu
+    "pertama-tama", "kedua", "ketiga", "selanjutnya", "kemudian", "setelah itu",
+    "sebelum itu", "berikutnya", "pada akhirnya", "akhirnya", "sesudah itu",
+    # Contoh
+    "sebagai contoh", "misalnya", "contohnya", "sebagai ilustrasi",
+    # Penekanan/klarifikasi
+    "dengan kata lain", "artinya", "yaitu", "yakni", "khususnya", "terutama",
+    "pada dasarnya", "faktanya", "kenyataannya", "perlu dicatat", "perlu diketahui",
+    "perlu diingat", "yang perlu diperhatikan",
+    # Ringkasan
+    "sebagai kesimpulan", "kesimpulannya", "singkatnya", "singkat kata", "ringkasnya",
+    "secara keseluruhan",
+]
+
+
+def _persen_transisi(sents):
+    if not sents:
+        return 0.0
+    n_ada = 0
+    for s in sents:
+        sl = " " + s.lower() + " "
+        if any(t in sl for t in _KATA_TRANSISI):
+            n_ada += 1
+    return n_ada / len(sents) * 100
+
+
 # ---------- penilaian objektif (ala Yoast) ----------
 def _check(label, status, msg):
     # status: "good" (hijau), "ok" (kuning), "bad" (merah)
@@ -126,15 +185,30 @@ def hitung_metrik(title, content, meta, keyphrase):
         read.append(_check("Panjang kalimat", "good" if pct_long <= 25 else "bad",
                            f"{pct_long:.0f}% kalimat >20 kata (maks 25%)."))
 
-        # kalimat pasif (heuristik bahasa Indonesia: awalan di- + akhiran umum / 'oleh')
+        # kalimat pasif (heuristik bahasa Indonesia: awalan di- + akhiran umum / 'oleh',
+        # dikecualikan istilah teknis/kata umum berawalan "di-" yang bukan kata kerja -- lihat
+        # _DI_BUKAN_PASIF / _kata_pasif() di atas)
         passive = 0
         for s in sents:
             sw = s.lower()
-            if re.search(r"\bdi[a-z]{3,}", sw) or " oleh " in sw:
+            ada_di_pasif = any(_kata_pasif(w) for w in _words(sw))
+            if ada_di_pasif or " oleh " in sw:
                 passive += 1
         pct_pass = passive / ns * 100
         read.append(_check("Kalimat pasif", "good" if pct_pass <= 10 else "ok",
                            f"~{pct_pass:.0f}% kalimat berpotensi pasif (maks 10%)."))
+
+        # kata/frasa transisi (target minimal 50% kalimat; standar umum minimal 30%)
+        pct_trans = _persen_transisi(sents)
+        if pct_trans >= 50:
+            read.append(_check("Kata transisi", "good",
+                               f"{pct_trans:.0f}% kalimat memakai kata transisi (target 50%+)."))
+        elif pct_trans >= 30:
+            read.append(_check("Kata transisi", "ok",
+                               f"{pct_trans:.0f}% kalimat memakai kata transisi (target 50%+, minimal 30%)."))
+        else:
+            read.append(_check("Kata transisi", "bad",
+                               f"{pct_trans:.0f}% kalimat memakai kata transisi, terlalu sedikit (target 50%+)."))
 
     # panjang paragraf
     paras = _paragraphs(content)
@@ -209,6 +283,11 @@ def perbaiki_artikel(title, content, meta, keyphrase, metrik):
         f"FOCUS KEYPHRASE: {keyphrase}\n"
         f"MASALAH yang harus diperbaiki:\n{daftar}\n\n"
         "ATURAN: heading tertinggi <h2> (tanpa <h1>); mayoritas kalimat aktif & <=20 kata; "
+        "HINDARI kalimat pasif (awalan 'di-' + 'oleh') - ubah jadi kalimat aktif (subjek melakukan tindakan) "
+        "kecuali memang tidak ada subjek pelaku yang jelas; MINIMAL 50% kalimat memakai kata/frasa transisi "
+        "(mis. \"selain itu\", \"oleh karena itu\", \"sebagai contoh\", \"dengan demikian\", \"namun demikian\", "
+        "\"di sisi lain\", \"sebagai kesimpulan\", dst) untuk menyambungkan alur antar-kalimat/paragraf secara "
+        "natural (jangan dipaksakan/diulang-ulang kata yang sama); "
         "keyphrase muncul di judul, paragraf pertama, dan minimal satu subheading; densitas keyphrase 0.5-3%; "
         "pertahankan/segarkan struktur (paragraf + bullet list bila relevan); jangan pakai em dash.\n\n"
         f"JUDUL SAAT INI: {title}\n"
