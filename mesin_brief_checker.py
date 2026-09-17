@@ -1,34 +1,47 @@
 """
 Brief Checker — agent QC untuk hasil Content Planner.
 
-Memeriksa koherensi/relevansi brief:
+Memeriksa brief:
+- Jumlah slide minimal 3 (dihitung di kode).
+- Detail Visual tiap slide cukup rinci & background bukan polos/abstrak (dicek di kode).
 - Antar-slide nyambung & satu alur (slide 1 -> 2 -> dst tidak loncat topik).
 - Deskripsi Visual (instruksi gambar) sesuai dengan Headline/teks tiap slide.
 - Seluruh isi relevan dengan topik.
 
-Kalau tidak konsisten, agent memerintahkan rewrite (maks 2 putaran).
+Kalau ada masalah, agent memerintahkan rewrite (maks 3 putaran).
 """
 import re
 import json
 
-from mesin_agent import client  # reuse client Gemini
+from mesin_agent import panggil_gemini  # pemanggil Gemini dengan retry + model cadangan
+
+
+def _json_valid(teks):
+    try:
+        json.loads(re.sub(r"```json|```", "", teks).strip())
+        return True
+    except Exception:
+        return False
 
 
 def _periksa(brief_html, topik, platform):
     prompt = (
         f"Kamu QC editor untuk brief konten media sosial platform {platform}, topik \"{topik}\".\n\n"
-        "Periksa brief HTML di bawah pada 3 aspek:\n"
+        "Periksa brief HTML di bawah pada 4 aspek:\n"
         "1. KOHERENSI ANTAR-SLIDE: apakah slide mengalir satu alur logis (slide 1 -> 2 -> dst membahas tema yang sama, tidak loncat topik).\n"
         "2. VISUAL vs TEKS: apakah deskripsi 'Visual' (instruksi gambar) tiap slide SESUAI dengan Headline/Isi teks slide itu.\n"
-        "3. RELEVANSI TOPIK: apakah seluruh isi relevan dengan topik di atas.\n\n"
+        "3. RELEVANSI TOPIK: apakah seluruh isi relevan dengan topik di atas.\n"
+        "4. DETAIL VISUAL & BACKGROUND: apakah Visual tiap slide cukup spesifik untuk langsung dieksekusi desainer "
+        "(objek/model produk persis, lokasi nyata, orang & aksinya, properti, sudut kamera, pencahayaan), dan "
+        "background berupa scene nyata yang relevan — BUKAN background polos/warna solid/gradasi/elemen abstrak. "
+        "Warna dominan seharusnya jadi aksen/nuansa, bukan background polos.\n\n"
         "Kembalikan HANYA JSON valid (tanpa backtick): {\"konsisten\": true/false, \"masalah\": [\"masalah konkret (sebut slide & apa yang salah)\", \"...\"]}\n"
         "Set \"konsisten\": false bila ADA masalah berarti.\n\n"
         "=== BRIEF ===\n" + (brief_html or "")
     )
     try:
-        resp = client.models.generate_content(model="gemini-3.1-flash-lite", contents=prompt)
-        txt = re.sub(r"```json|```", "", resp.text or "").strip()
-        data = json.loads(txt)
+        teks = panggil_gemini(prompt, validasi=_json_valid)
+        data = json.loads(re.sub(r"```json|```", "", teks).strip())
         return {
             "konsisten": bool(data.get("konsisten", True)),
             "masalah": data.get("masalah", []) if isinstance(data.get("masalah"), list) else [],
@@ -46,6 +59,11 @@ def _rewrite(brief_html, topik, platform, masalah):
         "- Deskripsi Visual cocok dengan teks tiap slide.\n"
         "- Semua isi relevan dengan topik.\n\n"
         "MASALAH yang HARUS diperbaiki:\n" + daftar + "\n\n"
+        "ATURAN VISUAL (wajib di setiap slide, termasuk CTA): Visual berupa 5 bullet berlabel \"Jenis visual\", "
+        "\"Objek utama\", \"Latar/suasana\", \"Elemen pendukung\", \"Komposisi & warna\" — spesifik (nama/model produk "
+        "persis, lokasi nyata, orang & aksinya, properti, sudut kamera, pencahayaan, area teks). Warna Dominan hanya "
+        "jadi AKSEN/NUANSA; background WAJIB scene nyata yang relevan, DILARANG background polos/warna solid/gradasi/"
+        "elemen abstrak.\n"
         "PERTAHANKAN format & struktur HTML: <h1> untuk judul narasi, <h2> untuk tiap slide, "
         "<ul><li> untuk poin/Visual, slide terakhir tetap Call To Action. JANGAN ubah/hapus nama brand di judul "
         "(<h1>) maupun field \"Warna Dominan\" kalau sudah ada — pertahankan persis. "
@@ -53,8 +71,11 @@ def _rewrite(brief_html, topik, platform, masalah):
         "Kembalikan HANYA HTML brief yang sudah diperbaiki (tanpa backtick).\n\n"
         "=== BRIEF LAMA ===\n" + (brief_html or "")
     )
-    resp = client.models.generate_content(model="gemini-3.1-flash-lite", contents=prompt)
-    out = re.sub(r"^```html|^```|```$", "", (resp.text or "").strip(), flags=re.MULTILINE).strip()
+    try:
+        teks = panggil_gemini(prompt, validasi=lambda t: "<h2" in t.lower())
+    except Exception:
+        return brief_html  # rewrite gagal -> pertahankan brief lama (loop di pemanggil otomatis berhenti)
+    out = re.sub(r"^```html|^```|```$", "", teks, flags=re.MULTILINE).strip()
     return out or brief_html
 
 
@@ -64,27 +85,76 @@ def _hitung_slide(brief_html):
     return len(re.findall(r"<h2\b", brief_html or "", re.IGNORECASE))
 
 
-def periksa_dan_perbaiki(brief_html, topik, platform, maks=2):
-    """Cek jumlah slide minimal 3 (deterministik) + koherensi (via AI); rewrite kalau perlu
-    (maksimal `maks` putaran)."""
+def _teks_polos(html):
+    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", html or "")).strip()
+
+
+MIN_KATA_VISUAL = 35
+
+# Frasa yang menandakan visual mengarah ke background polos/abstrak, bukan scene nyata.
+_POLA_BG_POLOS = re.compile(
+    r"\b(polos|abstrak|abstract|warna solid|solid colou?r|gradasi|gradien|gradient|"
+    r"(?:background|latar(?: belakang)?)\s+(?:berwarna|warna)\b)",
+    re.IGNORECASE,
+)
+
+
+def _cek_visual(brief_html):
+    """Cek DETERMINISTIK (di kode, bukan tanya AI) tiap slide: Visual ada, cukup rinci
+    (>= MIN_KATA_VISUAL kata), dan tidak mengarah ke background polos/abstrak.
+    Return daftar masalah (kosong kalau semua aman)."""
+    potongan = re.split(r"(<h2\b[^>]*>.*?</h2>)", brief_html or "", flags=re.IGNORECASE | re.DOTALL)
+    masalah = []
+    for i in range(1, len(potongan), 2):
+        judul = _teks_polos(potongan[i]) or f"Slide {(i + 1) // 2}"
+        isi = potongan[i + 1] if i + 1 < len(potongan) else ""
+        m = re.search(r"Visual\s*:?\s*</strong>.*?<ul\b[^>]*>(.*?)</ul>", isi, flags=re.IGNORECASE | re.DOTALL)
+        if not m:
+            masalah.append(f"{judul}: belum ada deskripsi Visual — tambahkan 5 bullet Visual yang rinci.")
+            continue
+        visual = _teks_polos(m.group(1))
+        jumlah_kata = len(visual.split())
+        if jumlah_kata < MIN_KATA_VISUAL:
+            masalah.append(
+                f"{judul}: deskripsi Visual terlalu umum ({jumlah_kata} kata) — rinci jadi Jenis visual, Objek utama, "
+                "Latar/suasana, Elemen pendukung, Komposisi & warna."
+            )
+        polos = next(
+            (p for p in _POLA_BG_POLOS.finditer(visual)
+             # abaikan kalau didahului negasi, mis. "bukan background polos", "hindari gradasi"
+             if not re.search(r"\b(bukan|tanpa|hindari|jangan|tidak|dilarang)\b(\s+\S+){0,3}\s*$",
+                              visual[:p.start()], re.IGNORECASE)),
+            None,
+        )
+        if polos:
+            masalah.append(
+                f"{judul}: Visual mengarah ke background polos/abstrak (\"{polos.group(0)}\") — ganti dengan scene "
+                "nyata yang relevan; warna dominan cukup jadi aksen/nuansa."
+            )
+    return masalah
+
+
+def periksa_dan_perbaiki(brief_html, topik, platform, maks=3):
+    """Cek jumlah slide minimal 3 & detail visual/background (deterministik, di kode) lalu
+    koherensi (via AI); rewrite kalau perlu (maksimal `maks` putaran)."""
     hasil = brief_html
     for _ in range(maks):
+        masalah = []
         jumlah_slide = _hitung_slide(hasil)
         if jumlah_slide < 3:
-            masalah = [
+            masalah.append(
                 f"Cuma ada {jumlah_slide} slide, WAJIB minimal 3 slide (termasuk CTA). Tambah slide BARU yang "
                 "relevan dengan topik (jangan cuma menambah CTA duplikat)."
-            ]
-            baru = _rewrite(hasil, topik, platform, masalah)
-            if not baru or baru.strip() == (hasil or "").strip():
-                break
-            hasil = baru
-            continue  # cek lagi dari awal (termasuk jumlah slide) di putaran berikutnya
+            )
+        masalah += _cek_visual(hasil)
 
-        cek = _periksa(hasil, topik, platform)
-        if cek["konsisten"]:
-            break
-        baru = _rewrite(hasil, topik, platform, cek["masalah"])
+        if not masalah:
+            cek = _periksa(hasil, topik, platform)
+            if cek["konsisten"]:
+                break
+            masalah = cek["masalah"]
+
+        baru = _rewrite(hasil, topik, platform, masalah)
         if not baru or baru.strip() == (hasil or "").strip():
             break
         hasil = baru
@@ -126,9 +196,8 @@ def cek_kemiripan_antar_konten(topik, platform, daftar_brief):
         + daftar_teks
     )
     try:
-        resp = client.models.generate_content(model="gemini-3.1-flash-lite", contents=prompt)
-        txt = re.sub(r"```json|```", "", resp.text or "").strip()
-        data = json.loads(txt)
+        teks = panggil_gemini(prompt, validasi=_json_valid)
+        data = json.loads(re.sub(r"```json|```", "", teks).strip())
         instruksi = data.get("instruksi_revisi", {})
         if not isinstance(instruksi, dict):
             instruksi = {}

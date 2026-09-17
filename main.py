@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from mesin_agent import buat_brief   # ambil mesin agent yang tadi kita bikin
@@ -43,6 +43,9 @@ def cek_hidup():
 @app.post("/buat-brief")
 def endpoint_buat_brief(pesanan: PesananBrief):
     hasil = buat_brief(pesanan.topik, pesanan.link, pesanan.platform, pesanan.jumlah, pesanan.brand, pesanan.sudut)
+    if not any(hasil.values()):
+        # Semua brief gagal walau sudah retry + model cadangan -> server AI sedang benar-benar down.
+        raise HTTPException(status_code=503, detail="Server AI sedang sibuk. Coba generate lagi dalam 1-2 menit.")
     return {"brief": hasil}
 
 # Pesanan untuk cek SEO sebuah artikel

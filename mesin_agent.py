@@ -1,5 +1,6 @@
 import os
 import re
+import time
 import requests
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
@@ -33,6 +34,33 @@ class _LazyClient:
 
 client = _LazyClient()
 
+MODEL_UTAMA = "gemini-3.1-flash-lite"
+MODEL_CADANGAN = "gemini-3.5-flash-lite"  # dipakai kalau model utama sibuk/error berulang
+
+
+def panggil_gemini(prompt, validasi=None):
+    """Panggil Gemini yang tahan gangguan sesaat (rate limit 429, server sibuk 503, timeout,
+    balasan kosong). Coba model utama 3x lalu model cadangan 2x, dengan jeda makin panjang
+    (3, 6, 12, 20 detik). `validasi(teks) -> bool` opsional: balasan yang tidak lolos dianggap
+    gagal & dicoba ulang. Raise RuntimeError kalau semua percobaan gagal."""
+    urutan = [MODEL_UTAMA, MODEL_UTAMA, MODEL_UTAMA, MODEL_CADANGAN, MODEL_CADANGAN]
+    jeda = [3, 6, 12, 20]
+    err_terakhir = None
+    for i, model in enumerate(urutan):
+        try:
+            resp = client.models.generate_content(model=model, contents=prompt)
+            teks = (resp.text or "").strip()
+            if teks and (validasi is None or validasi(teks)):
+                return teks
+            err_terakhir = RuntimeError(f"balasan {model} kosong/tidak valid")
+        except Exception as e:
+            err_terakhir = e
+            if getattr(e, "code", None) in (401, 403):
+                break  # masalah API key/izin -- diulang pun percuma
+        if i < len(jeda):
+            time.sleep(jeda[i])
+    raise RuntimeError(f"Gemini gagal setelah beberapa percobaan: {err_terakhir}")
+
 CONTOH_FORMAT = """<h1>Konten Carousel Instagram — Realita Kehidupan Laboran</h1>
 <p><strong>Jenis Konten:</strong> Entertaining / Relatable</p>
 <p><strong>Format:</strong> Carousel</p>
@@ -42,7 +70,11 @@ CONTOH_FORMAT = """<h1>Konten Carousel Instagram — Realita Kehidupan Laboran</
 <h2>SLIDE 1 — Thumbnail</h2>
 <p><strong>Visual:</strong></p>
 <ul>
-  <li>Ilustrasi karakter laboran yang bingung di depan timbangan.</li>
+  <li>Jenis visual: foto realistis (bukan ilustrasi flat).</li>
+  <li>Objek utama: timbangan analitik digital Orion Series dengan kaca pelindung (draft shield) terbuka setengah, layar menampilkan angka 0.0012 g yang terus berubah.</li>
+  <li>Latar/suasana: ruang laboratorium kimia, meja kerja granit putih, rak berisi botol reagen dan beaker kaca sedikit blur di belakang, lampu neon putih dari atas.</li>
+  <li>Elemen pendukung: laboran berjas lab putih dan sarung tangan nitril memegang spatula berisi serbuk, dahi berkerut menatap layar timbangan.</li>
+  <li>Komposisi & warna: diambil dari samping kanan (sudut 45°), fokus tajam di layar timbangan; merah muncul sebagai aksen di tutup botol reagen, label rak, dan frame teks; ruang kosong di sisi kiri untuk headline.</li>
 </ul>
 <p><strong>Headline:</strong> Momen "Dugaan" di Laboratorium</p>
 <p><strong>Sub Headline:</strong> Saat Kamu Sudah Yakin, Tapi Angka Terus Berubah</p>
@@ -50,7 +82,11 @@ CONTOH_FORMAT = """<h1>Konten Carousel Instagram — Realita Kehidupan Laboran</
 <h2>SLIDE 2 — Penyebabnya Apa?</h2>
 <p><strong>Visual:</strong></p>
 <ul>
-  <li>Foto timbangan dengan area kerja sedikit berantakan.</li>
+  <li>Jenis visual: foto close-up realistis dengan 1 panah penanda (callout) grafis.</li>
+  <li>Objek utama: pintu kaca samping timbangan analitik yang masih terbuka sekitar 3 cm, butiran serbuk di wadah timbang tampak sedikit bergeser.</li>
+  <li>Latar/suasana: area kerja lab dengan kipas angin dinding dan pintu ruangan terbuka terlihat blur di belakang, menandakan ada aliran udara.</li>
+  <li>Elemen pendukung: panah callout menunjuk celah pintu kaca dengan teks kecil "aliran udara masuk".</li>
+  <li>Komposisi & warna: close-up dari depan agak atas; merah dipakai di panah callout dan garis bawah teks, latar tetap foto ruangan lab yang terlihat jelas.</li>
 </ul>
 <p><strong>Headline:</strong> Penyebab Drama Timbangan</p>
 <p><strong>Isi:</strong></p>
@@ -59,6 +95,16 @@ CONTOH_FORMAT = """<h1>Konten Carousel Instagram — Realita Kehidupan Laboran</
 </ul>
 
 <h2>SLIDE 3 — Call To Action</h2>
+<p><strong>Visual:</strong></p>
+<ul>
+  <li>Jenis visual: foto realistis.</li>
+  <li>Objek utama: timbangan Orion Series tertutup rapat dengan layar stabil menunjukkan 25.0000 g.</li>
+  <li>Latar/suasana: meja lab yang rapi dan bersih, laboran tersenyum sambil mencatat hasil di buku log.</li>
+  <li>Elemen pendukung: tombol CTA berbentuk kotak membulat dan logo brand di pojok kanan bawah.</li>
+  <li>Komposisi & warna: eye-level, cahaya terang; merah di tombol CTA, pena, dan aksen label, bagian atas foto disisakan untuk teks ajakan.</li>
+</ul>
+<p><strong>Headline:</strong> Hasil Timbang Stabil Tanpa Drama</p>
+<p><strong>Isi:</strong></p>
 <ul>
   <li>Template CTA yang biasa digunakan.</li>
 </ul>"""
@@ -133,31 +179,22 @@ def _agent_jumlah(topik, sudut_pilihan, platform):
         "angkanya."
     )
     try:
-        resp = client.models.generate_content(model="gemini-3.1-flash-lite", contents=prompt)
-        n = int(re.search(r"\d+", resp.text or "").group())
+        teks = panggil_gemini(prompt, validasi=lambda t: re.search(r"\d+", t) is not None)
+        n = int(re.search(r"\d+", teks).group())
         return max(1, min(n, 8))
     except Exception:
         return 2  # fallback wajar kalau AI gagal / balasan tidak bisa diparse
 
 
 def _generate_aman(prompt):
-    """Panggil Gemini dengan 1x retry kalau error transient (rate limit/timeout/gangguan
-    jaringan). Request generate makin banyak panggilan Gemini berurutan (jumlah brief >1,
-    Agent Jumlah, checker antar-konten, dst) -> makin besar peluang 1 panggilan kena error
-    sesaat. Kalau tetap gagal, kembalikan HTML placeholder yang jelas (BUKAN raise), supaya
-    1 kegagalan tidak bikin SELURUH request /buat-brief 500 (brief lain tetap jalan)."""
-    for percobaan in range(2):
-        try:
-            resp = client.models.generate_content(model="gemini-3.1-flash-lite", contents=prompt)
-            return resp.text or ""
-        except Exception as e:
-            if percobaan == 0:
-                continue
-            return (
-                "<h1>⚠️ Gagal membuat konten</h1>"
-                f"<p><strong>Error:</strong> Terjadi gangguan saat memanggil AI ({type(e).__name__}). "
-                "Coba generate ulang untuk konten ini.</p>"
-            )
+    """Panggil Writer lewat panggil_gemini (retry bertahap + model cadangan). Balasan wajib
+    berupa brief HTML ber-slide (<h2>) dan tidak terlalu pendek. Return None kalau tetap gagal
+    -- JANGAN kembalikan HTML "gagal" karena itu akan ikut tersimpan jadi task; pemanggil yang
+    memutuskan (coba lagi nanti / lewati)."""
+    try:
+        return panggil_gemini(prompt, validasi=lambda t: len(t) >= 300 and "<h2" in t.lower())
+    except Exception:
+        return None
 
 
 def baca_link(url):
@@ -185,8 +222,8 @@ def buat_brief_satu_platform(topik, link, isi_link, platform, sudut=None, brand=
             f"- Brief ini untuk akun/brand \"{b['label']}\". Warna Dominan brief ini SUDAH DITENTUKAN SISTEM: "
             f"\"{warna_paksa}\" (SATU warna ini saja). WAJIB: (1) isi field \"Warna Dominan\" PERSIS dengan kata "
             f"\"{warna_paksa}\" SAJA — JANGAN tambah warna lain, JANGAN pakai kata \"dan\", walau menurutmu warna lain "
-            f"juga cocok/related dengan topiknya; (2) deskripsi Visual & mood tiap slide juga konsisten pakai nuansa "
-            f"warna \"{warna_paksa}\" saja, bukan kombinasi warna lain.\n"
+            f"juga cocok/related dengan topiknya; (2) di bagian Visual, \"{warna_paksa}\" jadi warna AKSEN/NUANSA yang "
+            f"konsisten (lihat ATURAN WARNA & BACKGROUND), bukan warna background polos.\n"
             f"- Sisipkan nama brand \"{b['label']}\" di judul narasi (<h1>) secara natural, mis. \"<Judul konten> — {b['label']}\".\n"
         )
     elif b:
@@ -215,7 +252,9 @@ PENTING:
   * Label singkat (Jenis Konten, Headline, Sub Headline, dsb) pakai <p><strong>Label:</strong> nilai</p>.
 - HANYA keluarkan HTML mentah. JANGAN bungkus dengan ```html atau ``` , JANGAN pakai markdown.
 - Sesuaikan NUANSA dengan platform {platform}: kalau Instagram lebih santai/relatable, kalau LinkedIn lebih profesional dan informatif.
-{instruksi_sudut}{instruksi_brand}{instruksi_beda}- Jangan menambah bagian "Tips Tambahan", "Caption", atau "Hashtag".
+{instruksi_sudut}{instruksi_brand}{instruksi_beda}- ATURAN VISUAL (WAJIB di SETIAP slide, termasuk CTA): tulis Visual sebagai 5 bullet berlabel persis seperti contoh — "Jenis visual", "Objek utama", "Latar/suasana", "Elemen pendukung", "Komposisi & warna". Harus SPESIFIK sampai desainer bisa langsung eksekusi tanpa menebak: sebut nama/model produk persis (dari informasi produk), kondisi/aksi yang sedang terjadi, lokasi nyata, orang (siapa, pakai apa, sedang apa) bila ada, properti di sekitar, sudut kamera, pencahayaan, dan area kosong untuk teks. DILARANG deskripsi umum seperti "foto produk", "infografis sederhana", "ikon terkait", "elemen desain", tanpa rincian.
+- ATURAN WARNA & BACKGROUND (WAJIB): Warna Dominan dipakai sebagai NUANSA/AKSEN — color grading foto, pencahayaan, properti, pakaian, panah/ikon/frame teks, tombol CTA — BUKAN sebagai background polos. Background tiap slide WAJIB berupa scene/lingkungan nyata yang relevan dengan topik (lokasi, ruangan, alat, aktivitas). Kalau pakai infografis/ikon, taruh di atas foto scene yang relevan. DILARANG: background polos/warna solid, background berwarna saja, gradasi warna saja, pola/elemen abstrak tanpa konteks.
+- Jangan menambah bagian "Tips Tambahan", "Caption", atau "Hashtag".
 - JUMLAH SLIDE (WAJIB): minimal 3 slide (termasuk CTA) — JANGAN PERNAH cuma 1 atau 2 slide, itu terlalu tipis untuk carousel. Target rata-rata 4-5 slide. Maksimal 6 slide (termasuk CTA). Slide terakhir selalu CTA (isi CTA seperti biasa).
 - Pada bagian "Sumber/Referensi", tulis link ini: {link}
 
@@ -233,8 +272,10 @@ Platform: {platform}
 Pastikan isi nyambung dengan produk dari informasi di atas."""
 
     hasil = _generate_aman(perintah)
+    if hasil is None:
+        return None  # Writer gagal total -- buat_brief() yang akan coba ulang / melewati
 
-    # Brief Checker: cek koherensi/relevansi, rewrite otomatis kalau perlu (maks 2x)
+    # Brief Checker: cek jumlah slide, detail visual & background, koherensi; rewrite kalau perlu
     try:
         from mesin_brief_checker import periksa_dan_perbaiki
         hasil = periksa_dan_perbaiki(hasil, topik, platform)
@@ -302,6 +343,19 @@ def buat_brief(topik, link, daftar_platform, jumlah=0, brand=None, sudut=None):
             warna_i = palet_warna[i % len(palet_warna)] if (jumlah_platform > 1 and palet_warna) else None
             isi = buat_brief_satu_platform(topik, link, isi_link, platform, sudut_i, brand, warna_paksa=warna_i)
             daftar_brief.append({"sudut": sudut_i or "Umum", "isi": isi, "warna": warna_i})
+
+        # Brief yang gagal (server AI sibuk walau sudah retry + model cadangan): beri jeda supaya
+        # server reda, lalu coba SEKALI lagi. Yang masih gagal DILEWATI -- tidak pernah dikirim
+        # sebagai brief berisi pesan error.
+        gagal = [item for item in daftar_brief if not item["isi"]]
+        if gagal:
+            time.sleep(15)
+            for item in gagal:
+                sudut_ulang = None if item["sudut"] == "Umum" else item["sudut"]
+                item["isi"] = buat_brief_satu_platform(
+                    topik, link, isi_link, platform, sudut_ulang, brand, warna_paksa=item["warna"]
+                )
+        daftar_brief = [item for item in daftar_brief if item["isi"]]
 
         # Checker ANTAR-konten: cuma relevan kalau lebih dari 1 brief di platform ini.
         if len(daftar_brief) > 1:
