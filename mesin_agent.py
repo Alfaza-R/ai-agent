@@ -5,6 +5,7 @@ import requests
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from google import genai
+from google.genai import types as genai_types
 
 load_dotenv()
 
@@ -197,16 +198,69 @@ def _generate_aman(prompt):
         return None
 
 
-def baca_link(url):
+def baca_link(url, maks=10000):
+    """Ambil teks isi halaman referensi. Menu navigasi, header, footer, script, dan form dibuang
+    dulu -- sebelumnya teks mentah 2000 karakter pertama habis untuk menu website dan terpotong
+    sebelum bagian fitur/spesifikasi produk."""
     if not url:
         return "(tidak ada link referensi)"
     try:
         headers = {"User-Agent": "Mozilla/5.0"}
         halaman = requests.get(url, headers=headers, timeout=20)
         sup = BeautifulSoup(halaman.text, "html.parser")
-        return sup.get_text(separator=" ", strip=True)[:2000]
+        for tag in sup(["script", "style", "noscript", "svg", "nav", "header", "footer", "form", "iframe"]):
+            tag.decompose()
+        utama = sup.find("main") or sup.find("article") or sup.body or sup
+        return utama.get_text(separator=" ", strip=True)[:maks]
     except Exception as e:
         return f"(Gagal baca link: {e})"
+
+
+def _agent_research(topik, link, isi_link, brand=None):
+    """Agent Research: riset produk dari halaman link referensi + topik, lalu susun catatan
+    terstruktur (produk, spesifikasi, fitur, aplikasi, masalah, fakta, petunjuk visual, hal yang
+    tidak boleh diklaim) sebagai BAHAN untuk Agent Writer. Dijalankan SEKALI per permintaan.
+    Coba sekali dengan Google Search grounding (tanpa retry -- kuota grounding bisa habis);
+    kalau gagal, riset dari isi halaman saja lewat panggil_gemini. Kalau riset tetap gagal,
+    kembalikan isi halaman mentah supaya Writer tetap bisa jalan (perilaku lama)."""
+    b = BRAND_INFO.get((brand or "").strip().lower())
+    akun = f" untuk akun {b['label']}" if b else ""
+    prompt = (
+        f"Kamu Agent Research untuk tim content planner brand alat industri/laboratorium{akun}. Tugasmu meriset "
+        "produk & topik di bawah sebagai BAHAN untuk penulis brief konten media sosial.\n\n"
+        f"TOPIK KONTEN: {topik}\n"
+        f"LINK REFERENSI: {link or '(tidak ada)'}\n\n"
+        "Susun hasil riset dalam Bahasa Indonesia, poin-poin ringkas, isi FAKTA saja, dengan bagian:\n"
+        "1. PRODUK: nama & model persis, merek, kategori.\n"
+        "2. SPESIFIKASI KUNCI: angka/spesifikasi penting (rentang ukur, akurasi, kapasitas, konektivitas, daya, "
+        "material, sertifikasi/IP rating) — HANYA yang tertulis di sumber.\n"
+        "3. FITUR & KEUNGGULAN: fitur utama dan manfaat nyatanya bagi pengguna.\n"
+        "4. APLIKASI & PENGGUNA: industri, lokasi, siapa yang memakai, contoh situasi pemakaian nyata.\n"
+        "5. MASALAH YANG DISELESAIKAN: masalah audiens yang relevan dengan TOPIK dan bagaimana produk membantu.\n"
+        "6. FAKTA UNTUK KONTEN: fakta/angka/tips yang paling relevan dengan TOPIK, siap jadi bahan headline & isi slide.\n"
+        "7. PETUNJUK VISUAL: tampilan fisik produk (bentuk, warna casing, komponen yang terlihat, ukuran), "
+        "lingkungan pemasangan/pemakaian yang realistis, aktivitas orang saat memakainya.\n"
+        "8. JANGAN DIKLAIM: hal penting yang TIDAK ada di sumber atau belum pasti, supaya penulis tidak mengarang.\n\n"
+        "ATURAN: JANGAN mengarang angka/spesifikasi. Kalau halaman gagal dibaca atau tidak memuat info produk, riset "
+        "berdasarkan topik saja dan tandai poin yang belum terverifikasi dengan \"(perlu dicek)\". Kalau kamu memakai "
+        "info dari luar halaman referensi, tandai \"(sumber luar)\" dan jangan ambil info produk merek lain.\n\n"
+        "=== ISI HALAMAN REFERENSI ===\n" + (isi_link or "(kosong)") + "\n=== AKHIR ISI HALAMAN ==="
+    )
+    valid = lambda t: len(t) >= 300
+
+    try:
+        cfg = genai_types.GenerateContentConfig(tools=[genai_types.Tool(google_search=genai_types.GoogleSearch())])
+        resp = client.models.generate_content(model=MODEL_UTAMA, contents=prompt, config=cfg)
+        teks = (resp.text or "").strip()
+        if valid(teks):
+            return teks
+    except Exception:
+        pass  # grounding tidak tersedia/kuota habis -> lanjut riset tanpa grounding
+
+    try:
+        return panggil_gemini(prompt, validasi=valid)
+    except Exception:
+        return isi_link
 
 
 def buat_brief_satu_platform(topik, link, isi_link, platform, sudut=None, brand=None, instruksi_diferensiasi=None, warna_paksa=None):
@@ -262,14 +316,14 @@ PENTING:
 {CONTOH_FORMAT}
 === AKHIR CONTOH ===
 
-=== INFORMASI PRODUK (hasil baca link, pakai untuk konteks isi) ===
+=== HASIL RISET PRODUK (dari Agent Research — BAHAN UTAMA brief) ===
 {isi_link}
-=== AKHIR INFORMASI PRODUK ===
+=== AKHIR HASIL RISET ===
 
 Sekarang buat brief BARU dengan format sama persis untuk:
 Topik: {topik}
 Platform: {platform}
-Pastikan isi nyambung dengan produk dari informasi di atas."""
+Pastikan isi nyambung dengan produk dari hasil riset di atas: pakai nama/model, spesifikasi, fitur, dan fakta dari riset untuk headline & isi slide; pakai bagian PETUNJUK VISUAL untuk deskripsi Visual; JANGAN mengklaim hal yang ada di bagian JANGAN DIKLAIM atau yang tidak ada di riset."""
 
     hasil = _generate_aman(perintah)
     if hasil is None:
@@ -319,7 +373,9 @@ def buat_brief(topik, link, daftar_platform, jumlah=0, brand=None, sudut=None):
     # kalau jumlah > banyaknya sudut yang dipilih).
     sudut_pilihan = _resolve_sudut_pilihan(sudut)
 
-    isi_link = baca_link(link)
+    # Agent Research: riset produk dari link + topik SEKALI per permintaan; hasilnya dipakai
+    # sebagai bahan oleh Agent Writer untuk semua platform & semua brief.
+    isi_link = _agent_research(topik, link, baca_link(link), brand)
     b = BRAND_INFO.get((brand or "").strip().lower())
     palet_warna = b["warna"] if b else []
 
