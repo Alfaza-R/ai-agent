@@ -3,6 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from mesin_agent import buat_brief   # ambil mesin agent yang tadi kita bikin
 from mesin_seo import cek_seo        # mesin cek SEO/readability ala Yoast
+from mesin_brief_seo import buat_brief_seo  # rencana gambar untuk task SEO (input gambar artikel)
+from mesin_analisis import analisa_kinerja  # narasi analisis kinerja intern (dashboard)
 from mesin_bms import analisa_bms    # asisten sales Building Management System
 from mesin_penetrasi import analisa_penetrasi, rekomendasi_target  # sistem multi-agent penetrasi pasar
 from mesin_konten_ig import buat_konten_ig  # multi-agent konten Instagram 4:5
@@ -47,6 +49,53 @@ def endpoint_buat_brief(pesanan: PesananBrief):
         # Semua brief gagal walau sudah retry + model cadangan -> server AI sedang benar-benar down.
         raise HTTPException(status_code=503, detail="Server AI sedang sibuk. Coba generate lagi dalam 1-2 menit.")
     return {"brief": hasil}
+
+# Pesanan brief SEO "input gambar": mentor kirim daftar keyword (artikel sudah tayang,
+# gambarnya belum ada) + website mana. Kredensial login TIDAK dikirim ke sini — bagian itu
+# disusun di WordPress, karena endpoint ini publik.
+class ItemKeywordSEO(BaseModel):
+    keyword: str = ""
+    referensi: list[str] = []      # link referensi gambar dari mentor (opsional)
+
+class PesananBriefSEO(BaseModel):
+    situs: str = ""                # cth: "alatuji.co.id" (cuma buat konteks, bukan kredensial)
+    daftar: list[ItemKeywordSEO] = []
+    catatan: str = ""              # instruksi tambahan dari mentor (opsional)
+
+# Loket brief SEO: balikin rencana gambar per keyword (featured + gambar dalam artikel)
+@app.post("/brief-seo-gambar")
+def endpoint_brief_seo_gambar(pesanan: PesananBriefSEO):
+    daftar = [item.model_dump() for item in pesanan.daftar]
+    if not any((item.get("keyword") or "").strip() for item in daftar):
+        raise HTTPException(status_code=400, detail="Daftar keyword kosong.")
+    hasil = buat_brief_seo(daftar, pesanan.situs, pesanan.catatan)
+    if hasil["jumlah_gagal"] and hasil["jumlah_gagal"] == hasil["jumlah_keyword"]:
+        raise HTTPException(status_code=503, detail="Server AI sedang sibuk. Coba generate lagi dalam 1-2 menit.")
+    return hasil
+
+# Pesanan analisis kinerja intern: dashboard kirim ANGKA hasil hitungannya, backend
+# yang menulis narasinya. Dibikin begini supaya API key Gemini tidak lagi ditaruh di
+# admin-dashboard.html (dulu ikut terkirim ke browser semua orang yang buka dashboard).
+class PesananAnalisis(BaseModel):
+    nama: str = ""
+    divisi: str = ""
+    skor: int = 0
+    maks: int = 0
+    tier: str = ""
+    done: int = 0
+    progress: int = 0
+    pending: int = 0
+    blocked: int = 0
+    total: int = 0
+    rincian: str = ""
+    daftar_task: list[str] = []
+
+@app.post("/analisis-intern")
+def endpoint_analisis_intern(pesanan: PesananAnalisis):
+    try:
+        return analisa_kinerja(pesanan.model_dump())
+    except Exception:
+        raise HTTPException(status_code=503, detail="Server AI sedang sibuk. Coba buka analisis lagi sebentar.")
 
 # Pesanan untuk cek SEO sebuah artikel
 class PesananCekSEO(BaseModel):
