@@ -45,7 +45,12 @@ SITUS_WEB = {
 
 MAKS_REFERENSI = 3
 MAKS_SCREENSHOT = 5
-MIN_SECTION_HALAMAN = 5
+MIN_SECTION_HALAMAN = 4  # isi halaman saja: hero, isi utama, keunggulan/bukti, CTA penutup
+
+# Header/navbar & footer tidak didesain (sudah ada di template website). 'Hero Header' tetap boleh.
+_POLA_HEADER_FOOTER = re.compile(
+    r"\b(navbar|nav\s*bar|navigasi|menu utama|footer)\b|(?<!hero )\bheader\b|\blogo\s*\+\s*menu\b", re.I)
+_POLA_NEGASI = re.compile(r"\b(tanpa|bukan|tidak|jangan|kecuali)\b(\s+\S+){0,3}\s*$", re.I)
 TOLERANSI_HUE = 20  # derajat — tint/shade dari warna brand dianggap satu keluarga
 
 # Aspek gaya yang digabung dari referensi (warna & font sengaja TIDAK ada di sini).
@@ -279,17 +284,32 @@ def _cek_brief(brief_html, jenis, jumlah_section_diminta, palet, font_web, id_re
     if re.search(r"<h[1-3]\b[^>]*>\s*style guide", brief_html or "", re.I):
         masalah.append("Hapus bagian Style guide dari brief — style guide sudah disusun dari style gabungan.")
 
-    minimal =MIN_SECTION_HALAMAN if jenis == "halaman" else max(1, jumlah_section_diminta)
+    minimal = MIN_SECTION_HALAMAN if jenis == "halaman" else max(1, jumlah_section_diminta)
     if len(section) < minimal:
         masalah.append(
             f"Cuma {len(section)} section, minimal {minimal} "
-            + ("untuk satu halaman penuh (mis. navbar, hero, isi utama, bukti/keunggulan, CTA, footer)."
+            + ("untuk isi satu halaman (mis. hero, isi utama, keunggulan/bukti, CTA penutup)."
                if jenis == "halaman" else "sesuai section yang diminta mentor.")
             + " Tiap section WAJIB <h2>Section N — Nama</h2>."
         )
 
     for s in section:
         f = s["field"]
+        # Header/navbar & footer sudah ada di template website — tidak ikut didesain.
+        if _POLA_HEADER_FOOTER.search(s["judul"]):
+            masalah.append(
+                f"\"{s['judul']}\": header/navbar dan footer TIDAK didesain (sudah ada di template website). "
+                "Hapus section ini, atau kalau isinya CTA penutup, ganti namanya jadi \"CTA Penutup\" tanpa unsur footer."
+            )
+        else:
+            isi = " ".join(f.values())
+            for m in _POLA_HEADER_FOOTER.finditer(isi):
+                if not _POLA_NEGASI.search(isi[:m.start()]):
+                    masalah.append(
+                        f"\"{s['judul']}\": menyebut \"{m.group(0)}\" — header/navbar dan footer tidak ikut didesain, "
+                        "hapus dari layout/komponen section ini."
+                    )
+                    break
         for label, awalan in (("Tujuan", ("tujuan",)), ("Layout desktop", ("layout desktop",)),
                               ("Layout mobile", ("layout mobile",)), ("Konten", ("konten",)),
                               ("Komponen", ("komponen",))):
@@ -472,10 +492,12 @@ def _teks_style(style):
 
 def _aturan_format(jenis, nama, id_ref):
     cakupan = (
-        f"SATU HALAMAN PENUH \"{nama}\": minimal {MIN_SECTION_HALAMAN} section berurutan dari atas "
-        "(navbar/header sampai footer)."
+        f"ISI SATU HALAMAN \"{nama}\": minimal {MIN_SECTION_HALAMAN} section berurutan, dari hero sampai CTA penutup."
         if jenis == "halaman" else
         f"SECTION TERTENTU saja: {nama}. Buat HANYA section yang diminta, satu <h2> per section."
+    ) + (
+        " JANGAN mendesain header/navbar maupun footer, dan jangan menyebutnya di layout/komponen — keduanya "
+        "sudah ada di template website."
     )
     ref_txt = ", ".join(id_ref) if id_ref else "(tidak ada referensi — tulis \"-\")"
     return (
@@ -592,6 +614,7 @@ PENANDA_SCREENSHOT = "<p>[[SCREENSHOT]]</p>"  # diganti WordPress dengan screens
 _CHECKLIST = (
     "<h2>Checklist sebelum lapor</h2><ul>"
     "<li>Ada frame Desktop 1440 px dan Mobile 390 px untuk semua section.</li>"
+    "<li>Header/navbar dan footer tidak ikut didesain — cukup isi halaman/section yang diminta.</li>"
     "<li>Warna & teks didaftarkan sebagai Color Styles dan Text Styles di Figma.</li>"
     "<li>Radius, spacing, bayangan, tombol, dan kartu mengikuti Style guide (gabungan referensi).</li>"
     "<li>Tombol, kartu, dan elemen berulang dibuat sebagai Component; pakai Auto Layout.</li>"
@@ -625,7 +648,9 @@ def _blok_style_guide(style, gaya, situs):
     e = html.escape
     warna = ", ".join(gaya["warna"]) or "(tidak terbaca — tanyakan mentor)"
     font = ", ".join(gaya["font"]) or "(tidak terbaca — tanyakan mentor)"
-    h = "<h2>Style guide (gabungan referensi)</h2>"
+    h = ("<p><strong>Cakupan desain:</strong> hanya isi halaman/section di bawah. Header/navbar dan footer "
+         "<strong>tidak didesain</strong> — pakai yang sudah ada di website.</p>"
+         "<h2>Style guide (gabungan referensi)</h2>")
     if style.get("konsep"):
         h += f"<p><strong>Arah gaya:</strong> {e(str(style['konsep']))}</p>"
     h += (
