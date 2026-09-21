@@ -39,8 +39,11 @@ def analisa_kinerja(data):
 
     prompt = (
         "Kamu adalah manajer HR. Tulis analisis kinerja intern dalam Bahasa Indonesia.\n\n"
-        "SISTEM POIN: Web done=7pts progress=3pts | Design done=6pts progress=2pts | "
-        "SEO done=4pts progress=2pts | Interview done=4pts progress=2pts | "
+        # Harus sama dengan TASK_POINTS di plugin (includes/class-api-tasks.php).
+        "SISTEM POIN: Web done=5pts progress=3pts | Design done=5pts progress=2pts | "
+        "SEO done=5pts progress=2pts | Video Editing done=5pts progress=2pts | "
+        "Interview done=4pts progress=2pts | Recruitment done=4pts progress=2pts | "
+        "Development Karyawan done=3pts progress=1pts | Absensi Harian done=1pts progress=0pts | "
         "Admin done=3pts progress=1pts | QC done=4pts progress=2pts | pending/blocked=0pts\n"
         "TIER: S>=85% A>=70% B>=50% C>=30% D<30% dari total poin maksimal\n\n"
         f"INTERN: {nama} ({divisi})\n"
