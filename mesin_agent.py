@@ -39,17 +39,21 @@ MODEL_UTAMA = "gemini-3.1-flash-lite"
 MODEL_CADANGAN = "gemini-3.5-flash-lite"  # dipakai kalau model utama sibuk/error berulang
 
 
-def panggil_gemini(prompt, validasi=None):
+def panggil_gemini(prompt, validasi=None, gambar=None):
     """Panggil Gemini yang tahan gangguan sesaat (rate limit 429, server sibuk 503, timeout,
     balasan kosong). Coba model utama 3x lalu model cadangan 2x, dengan jeda makin panjang
     (3, 6, 12, 20 detik). `validasi(teks) -> bool` opsional: balasan yang tidak lolos dianggap
-    gagal & dicoba ulang. Raise RuntimeError kalau semua percobaan gagal."""
+    gagal & dicoba ulang. `gambar` opsional: list (bytes, mime) yang ikut dikirim bersama prompt.
+    Raise RuntimeError kalau semua percobaan gagal."""
+    contents = prompt
+    if gambar:
+        contents = [prompt] + [genai_types.Part.from_bytes(data=b, mime_type=m) for b, m in gambar]
     urutan = [MODEL_UTAMA, MODEL_UTAMA, MODEL_UTAMA, MODEL_CADANGAN, MODEL_CADANGAN]
     jeda = [3, 6, 12, 20]
     err_terakhir = None
     for i, model in enumerate(urutan):
         try:
-            resp = client.models.generate_content(model=model, contents=prompt)
+            resp = client.models.generate_content(model=model, contents=contents)
             teks = (resp.text or "").strip()
             if teks and (validasi is None or validasi(teks)):
                 return teks

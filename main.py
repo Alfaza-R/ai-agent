@@ -6,6 +6,9 @@ from mesin_seo import cek_seo        # mesin cek SEO/readability ala Yoast
 from mesin_brief_seo import buat_brief_seo  # rencana gambar untuk task SEO (input gambar artikel)
 from mesin_analisis import analisa_kinerja  # narasi analisis kinerja intern (dashboard)
 from mesin_brief_video import buat_brief_video  # brief video short (Reels/TikTok/Shorts)
+from mesin_brief_ui import buat_brief_ui        # brief UI (mockup Figma)
+import base64
+import binascii
 from mesin_bms import analisa_bms    # asisten sales Building Management System
 from mesin_penetrasi import analisa_penetrasi, rekomendasi_target  # sistem multi-agent penetrasi pasar
 from mesin_konten_ig import buat_konten_ig  # multi-agent konten Instagram 4:5
@@ -94,6 +97,38 @@ def endpoint_buat_brief_video(pesanan: PesananBriefVideo):
     if not hasil:
         raise HTTPException(status_code=503, detail="Server AI sedang sibuk. Coba generate lagi dalam 1-2 menit.")
     return {"brief": hasil}
+
+# Pesanan brief UI (mockup Figma) — halaman penuh / section tertentu
+class ScreenshotUI(BaseModel):
+    data: str = ""                 # base64 (tanpa prefix data:...)
+    mime: str = "image/jpeg"
+
+class PesananBriefUI(BaseModel):
+    situs: str                     # domain website target, mis. "alatuji.co.id"
+    jenis: str = "halaman"         # "halaman" | "section"
+    nama: str                      # nama halaman / daftar section yang dibuat
+    tujuan: str = ""               # tujuan & isi halaman
+    referensi: list[str] = []      # link website referensi (maks 3)
+    screenshot: list[ScreenshotUI] = []  # screenshot desain lain (maks 5)
+    catatan: str = ""
+
+_MIME_GAMBAR = {"image/jpeg", "image/png", "image/webp"}
+
+@app.post("/buat-brief-ui")
+def endpoint_buat_brief_ui(pesanan: PesananBriefUI):
+    gambar = []
+    for s in pesanan.screenshot[:5]:
+        if s.mime not in _MIME_GAMBAR:
+            continue
+        try:
+            gambar.append((base64.b64decode(s.data, validate=True), s.mime))
+        except (binascii.Error, ValueError):
+            continue
+    hasil = buat_brief_ui(pesanan.situs, pesanan.jenis, pesanan.nama, pesanan.tujuan,
+                          pesanan.referensi, gambar, pesanan.catatan)
+    if not hasil:
+        raise HTTPException(status_code=503, detail="Server AI sedang sibuk. Coba generate lagi dalam 1-2 menit.")
+    return hasil
 
 # Pesanan analisis kinerja intern: dashboard kirim ANGKA hasil hitungannya, backend
 # yang menulis narasinya. Dibikin begini supaya API key Gemini tidak lagi ditaruh di
