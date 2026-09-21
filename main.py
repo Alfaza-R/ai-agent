@@ -5,6 +5,7 @@ from mesin_agent import buat_brief   # ambil mesin agent yang tadi kita bikin
 from mesin_seo import cek_seo        # mesin cek SEO/readability ala Yoast
 from mesin_brief_seo import buat_brief_seo  # rencana gambar untuk task SEO (input gambar artikel)
 from mesin_analisis import analisa_kinerja  # narasi analisis kinerja intern (dashboard)
+from mesin_brief_video import buat_brief_video  # brief video short (Reels/TikTok/Shorts)
 from mesin_bms import analisa_bms    # asisten sales Building Management System
 from mesin_penetrasi import analisa_penetrasi, rekomendasi_target  # sistem multi-agent penetrasi pasar
 from mesin_konten_ig import buat_konten_ig  # multi-agent konten Instagram 4:5
@@ -72,6 +73,27 @@ def endpoint_brief_seo_gambar(pesanan: PesananBriefSEO):
     if hasil["jumlah_gagal"] and hasil["jumlah_gagal"] == hasil["jumlah_keyword"]:
         raise HTTPException(status_code=503, detail="Server AI sedang sibuk. Coba generate lagi dalam 1-2 menit.")
     return hasil
+
+# Pesanan brief video short (9:16, 30-60 detik)
+class PesananBriefVideo(BaseModel):
+    topik: str
+    link: str = ""                 # link produk/referensi (dibaca Agent Research)
+    gambar: list[str] = []         # link gambar produk dari mentor
+    brand: str = ""                # key BRAND_INFO (alatuji, taharica, dst.)
+    durasi: int = 0                # 0 = AI pilih 30-60 detik; 30/45/60 = dipaksa
+    jumlah: int = 1                # 1-3 video per permintaan
+    sudut: list[str] = []          # key sudut konten; kosong = sistem pilih bergiliran
+    catatan: str = ""
+
+@app.post("/buat-brief-video")
+def endpoint_buat_brief_video(pesanan: PesananBriefVideo):
+    hasil = buat_brief_video(
+        pesanan.topik, pesanan.link, pesanan.gambar, pesanan.brand,
+        pesanan.durasi, pesanan.jumlah, pesanan.sudut, pesanan.catatan,
+    )
+    if not hasil:
+        raise HTTPException(status_code=503, detail="Server AI sedang sibuk. Coba generate lagi dalam 1-2 menit.")
+    return {"brief": hasil}
 
 # Pesanan analisis kinerja intern: dashboard kirim ANGKA hasil hitungannya, backend
 # yang menulis narasinya. Dibikin begini supaya API key Gemini tidak lagi ditaruh di
