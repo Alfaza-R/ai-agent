@@ -1,6 +1,7 @@
 import os
 import re
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
@@ -39,6 +40,18 @@ MODEL_UTAMA = "gemini-3.1-flash-lite"
 MODEL_CADANGAN = "gemini-3.5-flash-lite"  # dipakai kalau model utama sibuk/error berulang
 
 
+# Brief tidak butuh model "berpikir" dulu — mematikannya memangkas waktu panggilan ±2x
+# (tes: 13,1 -> 5,7 detik). Model cadangan menolak pengaturan ini, jadi dipakai apa adanya.
+_TANPA_THINKING = genai_types.GenerateContentConfig(
+    thinking_config=genai_types.ThinkingConfig(thinking_budget=0)
+)
+_model_tolak_thinking = set()
+
+
+def _config(model):
+    return None if model in _model_tolak_thinking else _TANPA_THINKING
+
+
 def panggil_gemini(prompt, validasi=None, gambar=None):
     """Panggil Gemini yang tahan gangguan sesaat (rate limit 429, server sibuk 503, timeout,
     balasan kosong). Coba model utama 3x lalu model cadangan 2x, dengan jeda makin panjang
@@ -53,7 +66,7 @@ def panggil_gemini(prompt, validasi=None, gambar=None):
     err_terakhir = None
     for i, model in enumerate(urutan):
         try:
-            resp = client.models.generate_content(model=model, contents=contents)
+            resp = client.models.generate_content(model=model, contents=contents, config=_config(model))
             teks = (resp.text or "").strip()
             if teks and (validasi is None or validasi(teks)):
                 return teks
@@ -62,6 +75,20 @@ def panggil_gemini(prompt, validasi=None, gambar=None):
             err_terakhir = e
             if getattr(e, "code", None) in (401, 403):
                 break  # masalah API key/izin -- diulang pun percuma
+            if (getattr(e, "code", None) == 400 or "thinking" in str(e).lower()) \
+                    and model not in _model_tolak_thinking:
+                # Model ini tidak menerima pengaturan thinking -> ulangi SEGERA tanpa pengaturan itu,
+                # jangan dihitung sebagai percobaan gagal. Model cadangan menolaknya dengan pesan
+                # umum "400 INVALID_ARGUMENT" (tanpa kata 'thinking'), jadi kode 400 ikut dipakai.
+                _model_tolak_thinking.add(model)
+                try:
+                    resp = client.models.generate_content(model=model, contents=contents)
+                    teks = (resp.text or "").strip()
+                    if teks and (validasi is None or validasi(teks)):
+                        return teks
+                    err_terakhir = RuntimeError(f"balasan {model} kosong/tidak valid")
+                except Exception as e2:
+                    err_terakhir = e2
         if i < len(jeda):
             time.sleep(jeda[i])
     raise RuntimeError(f"Gemini gagal setelah beberapa percobaan: {err_terakhir}")
@@ -362,6 +389,33 @@ def _paksa_warna_dominan(html, warna):
     return html
 
 
+MAKS_PARALEL = 4  # jangan terlalu banyak sekaligus supaya tidak kena rate limit Gemini (429)
+
+
+def _paralel(daftar_fungsi, maks=MAKS_PARALEL):
+    """Jalankan fungsi-fungsi tanpa argumen bersamaan, hasil tetap URUT sesuai masukan.
+    Panggilan Gemini menunggu jaringan, jadi dijalankan berbarengan jauh lebih cepat
+    daripada antre. Fungsi yang error mengembalikan None (pemanggil yang memutuskan)."""
+    if not daftar_fungsi:
+        return []
+    if len(daftar_fungsi) == 1:
+        try:
+            return [daftar_fungsi[0]()]
+        except Exception:
+            return [None]
+
+    hasil = [None] * len(daftar_fungsi)
+    with ThreadPoolExecutor(max_workers=min(maks, len(daftar_fungsi))) as pool:
+        futures = {pool.submit(f): i for i, f in enumerate(daftar_fungsi)}
+        for fut in as_completed(futures):
+            i = futures[fut]
+            try:
+                hasil[i] = fut.result()
+            except Exception:
+                hasil[i] = None
+    return hasil
+
+
 def buat_brief(topik, link, daftar_platform, jumlah=0, brand=None, sudut=None):
     # jumlah: 0/kosong = Agent Jumlah yang tentukan sendiri per platform (lihat _agent_jumlah).
     # Kalau user isi angka > 0, itu dipakai apa adanya (dibatasi 1-8) — pilihan user menang.
@@ -383,14 +437,19 @@ def buat_brief(topik, link, daftar_platform, jumlah=0, brand=None, sudut=None):
     b = BRAND_INFO.get((brand or "").strip().lower())
     palet_warna = b["warna"] if b else []
 
-    hasil = {}
+    # Jumlah per platform ditentukan dulu (paralel — tiap platform 1 panggilan singkat).
+    if jumlah_req > 0:
+        jumlah_per_platform = {p: max(1, min(jumlah_req, 8)) for p in daftar_platform}
+    else:
+        angka = _paralel([lambda p=p: _agent_jumlah(topik, sudut_pilihan, p) for p in daftar_platform])
+        jumlah_per_platform = {p: max(1, min(n or 2, 8)) for p, n in zip(daftar_platform, angka)}
+
+    # Semua brief (semua platform x semua index) ditulis BERSAMAAN, bukan antre. Dulu berurutan:
+    # 3 brief = ±190 detik, sering terputus batas waktu PHP/hosting sebelum selesai.
+    pesanan = []
     for platform in daftar_platform:
-        jumlah_platform = jumlah_req if jumlah_req > 0 else _agent_jumlah(topik, sudut_pilihan, platform)
-        jumlah_platform = max(1, min(jumlah_platform, 8))
-
+        jumlah_platform = jumlah_per_platform[platform]
         sudut_pool = sudut_pilihan if sudut_pilihan else SUDUT_KONTEN
-
-        daftar_brief = []
         for i in range(jumlah_platform):
             if sudut_pilihan:
                 # User pilih sudut sendiri -> HORMATI pilihannya, bergiliran, walau cuma 1 brief.
@@ -401,28 +460,49 @@ def buat_brief(topik, link, daftar_platform, jumlah=0, brand=None, sudut=None):
             # Kalau brief > 1 & brand punya beberapa warna -> warna dibagi RATA bergiliran
             # per index (bukan diserahkan ke AI), supaya tidak ada 2 konten kebetulan warna sama.
             warna_i = palet_warna[i % len(palet_warna)] if (jumlah_platform > 1 and palet_warna) else None
-            isi = buat_brief_satu_platform(topik, link, isi_link, platform, sudut_i, brand, warna_paksa=warna_i)
-            daftar_brief.append({"sudut": sudut_i or "Umum", "isi": isi, "warna": warna_i})
+            pesanan.append({"platform": platform, "sudut": sudut_i, "warna": warna_i})
 
-        # Brief yang gagal (server AI sibuk walau sudah retry + model cadangan): beri jeda supaya
-        # server reda, lalu coba SEKALI lagi. Yang masih gagal DILEWATI -- tidak pernah dikirim
-        # sebagai brief berisi pesan error.
-        gagal = [item for item in daftar_brief if not item["isi"]]
-        if gagal:
-            time.sleep(15)
-            for item in gagal:
-                sudut_ulang = None if item["sudut"] == "Umum" else item["sudut"]
-                item["isi"] = buat_brief_satu_platform(
-                    topik, link, isi_link, platform, sudut_ulang, brand, warna_paksa=item["warna"]
-                )
-        daftar_brief = [item for item in daftar_brief if item["isi"]]
+    isi_semua = _paralel([
+        lambda p=p: buat_brief_satu_platform(topik, link, isi_link, p["platform"], p["sudut"], brand,
+                                             warna_paksa=p["warna"])
+        for p in pesanan
+    ])
+    for p, isi in zip(pesanan, isi_semua):
+        p["isi"] = isi
 
-        # Checker ANTAR-konten: cuma relevan kalau lebih dari 1 brief di platform ini.
-        if len(daftar_brief) > 1:
-            daftar_brief = _diferensiasi_antar_konten(topik, link, isi_link, platform, brand, daftar_brief)
+    # Brief yang gagal (server AI sibuk walau sudah retry + model cadangan): beri jeda supaya
+    # server reda, lalu coba SEKALI lagi (juga paralel). Yang masih gagal DILEWATI -- tidak pernah
+    # dikirim sebagai brief berisi pesan error.
+    gagal = [p for p in pesanan if not p["isi"]]
+    if gagal:
+        time.sleep(15)
+        ulang = _paralel([
+            lambda p=p: buat_brief_satu_platform(topik, link, isi_link, p["platform"], p["sudut"], brand,
+                                                 warna_paksa=p["warna"])
+            for p in gagal
+        ])
+        for p, isi in zip(gagal, ulang):
+            p["isi"] = isi
 
-        hasil[platform] = daftar_brief
-    return hasil
+    per_platform = {
+        platform: [{"sudut": p["sudut"] or "Umum", "isi": p["isi"], "warna": p["warna"]}
+                   for p in pesanan if p["platform"] == platform and p["isi"]]
+        for platform in daftar_platform
+    }
+
+    # Checker ANTAR-konten: cuma relevan kalau lebih dari 1 brief di platform ini.
+    # Antar-platform tidak saling bergantung -> dijalankan bersamaan juga.
+    perlu_cek = [p for p in daftar_platform if len(per_platform[p]) > 1]
+    if perlu_cek:
+        dicek = _paralel([
+            lambda p=p: _diferensiasi_antar_konten(topik, link, isi_link, p, brand, per_platform[p])
+            for p in perlu_cek
+        ])
+        for platform, baru in zip(perlu_cek, dicek):
+            if baru:
+                per_platform[platform] = baru
+
+    return per_platform
 
 
 def _diferensiasi_antar_konten(topik, link, isi_link, platform, brand, daftar_brief, maks=2):
@@ -444,7 +524,9 @@ def _diferensiasi_antar_konten(topik, link, isi_link, platform, brand, daftar_br
         if not instruksi:
             break
 
-        berubah = False
+        # Brief yang perlu ditulis ulang dikerjakan BERSAMAAN (dulu satu per satu: tiap
+        # penulisan ulang ±20-30 detik, jadi ekor paling lambat di seluruh proses).
+        tugas = []
         for idx_str, catatan in instruksi.items():
             try:
                 idx = int(idx_str)
@@ -453,12 +535,18 @@ def _diferensiasi_antar_konten(topik, link, isi_link, platform, brand, daftar_br
             if not (0 <= idx < len(daftar_brief)) or not catatan:
                 continue
             sudut = daftar_brief[idx].get("sudut")
-            sudut = None if sudut in (None, "", "Umum") else sudut
-            warna_i = daftar_brief[idx].get("warna")
-            baru = buat_brief_satu_platform(
-                topik, link, isi_link, platform, sudut, brand,
-                instruksi_diferensiasi=catatan, warna_paksa=warna_i
-            )
+            tugas.append((idx, None if sudut in (None, "", "Umum") else sudut,
+                          daftar_brief[idx].get("warna"), catatan))
+        if not tugas:
+            break
+
+        hasil_ulang = _paralel([
+            lambda t=t: buat_brief_satu_platform(topik, link, isi_link, platform, t[1], brand,
+                                                 instruksi_diferensiasi=t[3], warna_paksa=t[2])
+            for t in tugas
+        ])
+        berubah = False
+        for (idx, _, _, _), baru in zip(tugas, hasil_ulang):
             if baru and baru.strip() != (daftar_brief[idx].get("isi") or "").strip():
                 daftar_brief[idx]["isi"] = baru
                 berubah = True

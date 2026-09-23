@@ -134,10 +134,15 @@ def _cek_visual(brief_html):
     return masalah
 
 
-def periksa_dan_perbaiki(brief_html, topik, platform, maks=3):
+def periksa_dan_perbaiki(brief_html, topik, platform, maks=2):
     """Cek jumlah slide minimal 3 & detail visual/background (deterministik, di kode) lalu
-    koherensi (via AI); rewrite kalau perlu (maksimal `maks` putaran)."""
+    koherensi (via AI); rewrite kalau perlu (maksimal `maks` putaran).
+
+    QC AI (_periksa) dijalankan CUKUP SEKALI per brief. Dulu dipanggil ulang tiap putaran:
+    untuk 3 brief jadi 11 panggilan (±46 detik) — penyumbang lambat terbesar, sampai
+    permintaan sering terputus batas waktu hosting."""
     hasil = brief_html
+    qc_sudah = False
     for _ in range(maks):
         masalah = []
         jumlah_slide = _hitung_slide(hasil)
@@ -149,7 +154,10 @@ def periksa_dan_perbaiki(brief_html, topik, platform, maks=3):
         masalah += _cek_visual(hasil)
 
         if not masalah:
+            if qc_sudah:
+                break
             cek = _periksa(hasil, topik, platform)
+            qc_sudah = True
             if cek["konsisten"]:
                 break
             masalah = cek["masalah"]
